@@ -34,4 +34,7 @@ lerna-debug.log*
 !.vscode/launch.json
 !.vscode/extensions.json
 
+/yarn.lock
 /.env
+/src/@generated/
+/src/schema.gql

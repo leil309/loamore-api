@@ -6,9 +6,15 @@ import { join } from 'path';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { GraphQLModule } from '@nestjs/graphql';
+import { ContentsModule } from 'src/contents/contents.module';
+import { PrismaModule } from 'src/prisma/prisma.modules';
 
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: process.env.NODE_ENV === 'prod' ? '.env.prod' : '.env',
+    }),
     GraphQLModule.forRootAsync<ApolloDriverConfig>({
       driver: ApolloDriver,
       imports: [ConfigModule],
@@ -27,6 +33,8 @@ import { GraphQLModule } from '@nestjs/graphql';
       }),
       inject: [ConfigService],
     }),
+    PrismaModule,
+    ContentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
