@@ -6,10 +6,10 @@ import { ContentsService } from 'src/contents/contents.service';
 export class ContentsResolver {
   constructor(private readonly contentsService: ContentsService) {}
 
-  @Query(() => table_name, {
+  @Query(() => String, {
     description: 'test',
   })
-  getTestTableData() {
-    return this.contentsService.getTestTableData();
+  getTestTableData(@Args('name', { type: () => String }) name: String) {
+    return this.contentsService.getTestTableData(name);
   }
 }
