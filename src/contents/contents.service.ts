@@ -32,6 +32,17 @@ interface IGear {
   additionalEffect: Array<string>;
 }
 
+interface IAccessory {
+  name: string;
+  imageUri: string;
+  tier: number;
+  quality: number;
+  baseEffect: Array<string>;
+  additionalEffect: Array<string>;
+  braceletEffect: Array<string>;
+  engraving: Array<any>;
+}
+
 @Injectable()
 export class ContentsService {
   constructor(private prisma: PrismaService) {}
@@ -110,7 +121,7 @@ export class ContentsService {
             const itemLevelRegex = /"leftStr2":"아이템 레벨 (\d+)/;
             const itemTierRegex = /\(티어 ([\d]+)\)/;
             const qualityRegex = /"qualityValue":(\d+)/;
-            const basicEffectRegex = /"기본 효과","[^"]+":"([^"]+)"/;
+            const baseEffectRegex = /"기본 효과","[^"]+":"([^"]+)"/;
             const additionalEffectRegex = /"추가 효과","[^"]+":"([^"]+)"/;
 
             let gear: IGear = {
@@ -118,14 +129,14 @@ export class ContentsService {
               quality: parseInt(data.match(qualityRegex)[1]),
               level: parseInt(data.match(itemLevelRegex)[1]),
               tier: parseInt(data.match(itemTierRegex)[1]),
-              baseEffect: basicEffectRegex
+              baseEffect: baseEffectRegex
                 .exec(data)[1]
                 .split(/(?<=\d)(?=[가-힣])/),
               additionalEffect: additionalEffectRegex
                 .exec(data)[1]
                 .split(/(?<=\d)(?=[가-힣])/),
             };
-            return '';
+            return gear;
           });
 
         const accessoryList = Object.entries(scriptJson.Equip)
@@ -134,7 +145,67 @@ export class ContentsService {
             const num = parseInt(obj[0].split('_')[1]);
             return [6, 7, 8, 9, 10, 11, 26].includes(num);
           })
-          .map((obj) => obj[1]);
+          .map((obj) => {
+            const data: string = JSON.stringify(obj[1]).replace(reg, '');
+
+            const nameRegex = /"type":"NameTagBox","value":"([^"]+)"/;
+            const imageUriRegex = /"iconPath":"(.*?)"/;
+            const qualityRegex = /"qualityValue":(\d+)/;
+            const itemTierRegex = /"아이템 티어 (\d+)"/;
+            const baseEffectRegex =
+              /"Element_000":"기본 효과","Element_001":"([^"]+)"/;
+            const additionalEffectRegex = /"추가 효과","[^"]+":"([^"]+)"/;
+            const engravingRegex = /"contentStr":"\[(.+?)\] 활성도 \+(\d+)"/g;
+            const braceletEffectRegex =
+              /"팔찌 효과","Element_001":"\s*(.+?)\s*"/;
+
+            const basicStatsRegex =
+              /(?:체력|힘|지력|민첩|신속|치명|특화|제압|숙련|인내)\s*\+\d+/g;
+            const specialAbilitiesRegex = /\[([^\]]+)\].*?\./g;
+
+            const nameMatch = nameRegex.exec(data);
+            const imageMatch = imageUriRegex.exec(data);
+            const tierMatch = itemTierRegex.exec(data);
+            const qualityMatch = qualityRegex.exec(data);
+            const baseEffectMatch = baseEffectRegex.exec(data);
+            const additionalEffectMatch = additionalEffectRegex.exec(data);
+            const braceletMatch = braceletEffectRegex.exec(data);
+
+            let braceletEffect = [];
+            if (braceletMatch) {
+              const basicStats = braceletMatch[1].match(basicStatsRegex);
+              const specialAbilities = braceletMatch[1]
+                .match(specialAbilitiesRegex)
+                .map((ability) => ability.slice(0, -1));
+              braceletEffect = basicStats.concat(specialAbilities);
+            }
+            let match;
+            const engravingEffect = [];
+            while ((match = engravingRegex.exec(data)) !== null) {
+              engravingEffect.push({
+                name: match[1],
+                points: parseInt(match[2], 10),
+              });
+            }
+
+            const accessory: IAccessory = {
+              name: nameMatch ? nameMatch[1] : '',
+              imageUri: imageMatch ? imageMatch[1] : '',
+              tier: tierMatch ? parseInt(data.match(itemTierRegex)[1]) : -1,
+              quality: qualityMatch
+                ? parseInt(data.match(qualityRegex)[1])
+                : -1,
+              baseEffect: baseEffectMatch
+                ? baseEffectMatch[1].split(/(?<=\d)(?=[가-힣]+)/)
+                : [],
+              additionalEffect: additionalEffectMatch
+                ? additionalEffectMatch[1].split(/(?<=\d)(?=[가-힣]+)/)
+                : [],
+              braceletEffect: braceletEffect,
+              engraving: engravingEffect,
+            };
+            return accessory;
+          });
 
         // 레벨
         json.level = $('.profile-character-info__lv').text();
