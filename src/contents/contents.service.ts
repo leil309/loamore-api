@@ -82,7 +82,7 @@ export class ContentsService {
 
         const scriptJson: IScript = JSON.parse(script);
 
-        const gemList = Object.entries(scriptJson.Equip)
+        json.gemList = Object.entries(scriptJson.Equip)
           .filter((obj) => obj[0].match('Gem'))
           .map((obj: any) => {
             const regex =
@@ -107,7 +107,7 @@ export class ContentsService {
             return gem;
           });
 
-        const gearList = Object.entries(scriptJson.Equip)
+        json.gearList = Object.entries(scriptJson.Equip)
           .filter((obj) => !obj[0].match('Gem'))
           .filter((obj) => {
             const num = parseInt(obj[0].split('_')[1]);
@@ -124,6 +124,24 @@ export class ContentsService {
             const baseEffectRegex = /"기본 효과","[^"]+":"([^"]+)"/;
             const additionalEffectRegex = /"추가 효과","[^"]+":"([^"]+)"/;
 
+            const setNameRegex = /"topStr":"([가-힣\s]+)"},"Element_001"/;
+            const setEffectRegex =
+              /"bPoint":(true|false),"contentStr":"[^}]*?([^}]*?)}},"topStr":"(\d) 세트 효과/g;
+
+            const setNameMatch = setNameRegex.exec(data);
+            const setName = setNameMatch ? setNameMatch[1] : '';
+
+            let setEffect = [];
+            let setEffectMatch;
+
+            while ((setEffectMatch = setEffectRegex.exec(data)) !== null) {
+              setEffect.push({
+                bPoint: setEffectMatch[1] === 'true',
+                piece: setEffectMatch[3],
+                effect: setEffectMatch[2],
+              });
+            }
+
             let gear: IGear = {
               name: data.match(itemNameRegex)[1],
               quality: parseInt(data.match(qualityRegex)[1]),
@@ -139,7 +157,7 @@ export class ContentsService {
             return gear;
           });
 
-        const accessoryList = Object.entries(scriptJson.Equip)
+        json.accessoryList = Object.entries(scriptJson.Equip)
           .filter((obj) => !obj[0].match('Gem'))
           .filter((obj) => {
             const num = parseInt(obj[0].split('_')[1]);
