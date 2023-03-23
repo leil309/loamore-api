@@ -43,6 +43,26 @@ interface IAccessory {
   engraving: Array<any>;
 }
 
+interface ICharacter {
+  userName: string;
+  level: any;
+  itemLevel: any;
+  guild: any;
+  stats: {
+    basic: any;
+    battle: any;
+    virtues: any;
+    engraving: any;
+  };
+  gemList: Array<any>;
+  gearList: Array<any>;
+  accessoryList: Array<any>;
+  avatarList: Array<any>;
+  cardList: Array<any>;
+  elixir: Array<any>;
+  ownUserName: Array<any>;
+}
+
 @Injectable()
 export class ContentsService {
   constructor(private prisma: PrismaService) {}
@@ -62,12 +82,30 @@ export class ContentsService {
       .then((response) => response.data)
       .then((html) => {
         const $ = cheerio.load(html);
-        let json: any = {};
+        let character: ICharacter = {
+          userName: '',
+          level: undefined,
+          itemLevel: undefined,
+          guild: undefined,
+          stats: {
+            basic: undefined,
+            battle: undefined,
+            virtues: undefined,
+            engraving: undefined,
+          },
+          gearList: undefined,
+          accessoryList: undefined,
+          gemList: undefined,
+          avatarList: undefined,
+          cardList: undefined,
+          elixir: undefined,
+          ownUserName: undefined,
+        };
 
         // 닉네임
-        json.userName = $('.profile-character-info__name').text();
+        character.userName = $('.profile-character-info__name').text().trim();
 
-        if (!json.userName) {
+        if (!character.userName) {
           throw new ApolloError('존재하지 않는 캐릭터입니다.');
         }
 
@@ -82,7 +120,7 @@ export class ContentsService {
 
         const scriptJson: IScript = JSON.parse(script);
 
-        json.gemList = Object.entries(scriptJson.Equip)
+        character.gemList = Object.entries(scriptJson.Equip)
           .filter((obj) => obj[0].match('Gem'))
           .map((obj: any) => {
             const regex =
@@ -107,7 +145,7 @@ export class ContentsService {
             return gem;
           });
 
-        json.gearList = Object.entries(scriptJson.Equip)
+        character.gearList = Object.entries(scriptJson.Equip)
           .filter((obj) => !obj[0].match('Gem'))
           .filter((obj) => {
             const num = parseInt(obj[0].split('_')[1]);
@@ -157,7 +195,7 @@ export class ContentsService {
             return gear;
           });
 
-        json.accessoryList = Object.entries(scriptJson.Equip)
+        character.accessoryList = Object.entries(scriptJson.Equip)
           .filter((obj) => !obj[0].match('Gem'))
           .filter((obj) => {
             const num = parseInt(obj[0].split('_')[1]);
@@ -226,11 +264,20 @@ export class ContentsService {
           });
 
         // 레벨
-        json.level = $('.profile-character-info__lv').text();
+        character.level = $('.profile-character-info__lv').text();
         // 템렙
         $('.level-info2__item > span').each(function (index, item) {
-          if (index === 1) json.itemLevel = $(this).text();
+          if (index === 1) character.itemLevel = $(this).text();
         });
+
+        // 기본스탯
+        character.stats.basic = this.basicStats($);
+        // 전투스탯
+        character.stats.battle = this.battleStats($);
+        // 성향
+        character.stats.virtues = this.virtues($);
+        // 각인
+        character.stats.engraving = this.engraving($);
 
         // 보유 캐릭터 목록
         let count = 0;
@@ -244,10 +291,112 @@ export class ContentsService {
             count = count + 1;
           },
         );
-        json.own_userName = temp;
-        return json;
+        character.ownUserName = temp;
+        return character;
       });
 
     return '';
   }
+
+  basicStats = ($) => {
+    return {
+      attackPower: parseInt(
+        $(
+          '#profile-ability > div.profile-ability-basic > ul > li:nth-child(1) > span:nth-child(2)',
+        )
+          .text()
+          .trim(),
+      ),
+      maxHealth: parseInt(
+        $(
+          '#profile-ability > div.profile-ability-basic > ul > li:nth-child(2) > span:nth-child(2)',
+        )
+          .text()
+          .trim(),
+      ),
+    };
+  };
+
+  battleStats = ($) => {
+    return {
+      critical: parseInt(
+        $(
+          '#profile-ability > div.profile-ability-battle > ul > li:nth-child(1) > span:nth-child(2)',
+        )
+          .text()
+          .trim(),
+      ),
+      specialization: parseInt(
+        $(
+          '#profile-ability > div.profile-ability-battle > ul > li:nth-child(2) > span:nth-child(2)',
+        )
+          .text()
+          .trim(),
+      ),
+      domination: parseInt(
+        $(
+          '#profile-ability > div.profile-ability-battle > ul > li:nth-child(3) > span:nth-child(2)',
+        )
+          .text()
+          .trim(),
+      ),
+      swiftness: parseInt(
+        $(
+          '#profile-ability > div.profile-ability-battle > ul > li:nth-child(4) > span:nth-child(2)',
+        )
+          .text()
+          .trim(),
+      ),
+      endurance: parseInt(
+        $(
+          '#profile-ability > div.profile-ability-battle > ul > li:nth-child(5) > span:nth-child(2)',
+        )
+          .text()
+          .trim(),
+      ),
+      expertise: parseInt(
+        $(
+          '#profile-ability > div.profile-ability-battle > ul > li:nth-child(6) > span:nth-child(2)',
+        )
+          .text()
+          .trim(),
+      ),
+    };
+  };
+  virtues = ($) => {
+    const data = $('body > script:nth-child(13)').text().trim();
+    const regex = /value:\s*\[(\d+),\s*(\d+),\s*(\d+),\s*(\d+)\]/;
+    const match = data.match(regex);
+
+    return {
+      wisdom: parseInt(match[1]),
+      courage: parseInt(match[2]),
+      charisma: parseInt(match[3]),
+      kindness: parseInt(match[4]),
+    };
+  };
+
+  engraving = ($) => {
+    const data = $(
+      '#profile-ability > div.profile-ability-engrave > div > div.swiper-wrapper',
+    )
+      .text()
+      .replace(/\t/gi, '')
+      .replace(/\n/gi, '')
+      .replace(/\\n/gi, '')
+      .replace(/\\t/gi, '')
+      .replace(/;/gi, '');
+    const regex = /([가-힣\s]+) Lv\. (\d)+/g;
+    const engravings = [];
+
+    let match;
+    while ((match = regex.exec(data)) !== null) {
+      engravings.push({
+        name: match[1].trim(),
+        level: parseInt(match[2]),
+      });
+    }
+
+    return engravings;
+  };
 }
