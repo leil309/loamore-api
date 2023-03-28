@@ -6,8 +6,8 @@ import { join } from 'path';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { GraphQLModule } from '@nestjs/graphql';
-import { ContentsModule } from 'src/contents/contents.module';
 import { PrismaModule } from 'src/prisma/prisma.modules';
+import { CharacterModule } from 'src/character/character.module';
 
 @Module({
   imports: [
@@ -34,7 +34,7 @@ import { PrismaModule } from 'src/prisma/prisma.modules';
       inject: [ConfigService],
     }),
     PrismaModule,
-    ContentsModule,
+    CharacterModule,
   ],
   controllers: [AppController],
   providers: [AppService],

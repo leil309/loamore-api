@@ -5,69 +5,30 @@ import { ApolloError } from 'apollo-server-express';
 import * as https from 'https';
 import axios from 'axios';
 
-interface IScript {
-  Card: any;
-  CardSet: any;
-  Engrave: any;
-  Equip: any;
-  GemSkillEffect: any;
-  Skill: any;
-}
-
-interface IGem {
-  name: string;
-  tier: number;
-  skill: string;
-  job: string;
-  rate: number;
-  effectType: string;
-  direction: string;
-}
-interface IGear {
-  name: string;
-  tier: number;
-  level: number;
-  quality: number;
-  baseEffect: Array<string>;
-  additionalEffect: Array<string>;
-}
-
-interface IAccessory {
-  name: string;
-  imageUri: string;
-  tier: number;
-  quality: number;
-  baseEffect: Array<string>;
-  additionalEffect: Array<string>;
-  braceletEffect: Array<string>;
-  engraving: Array<any>;
-}
-
-interface ICharacter {
-  userName: string;
-  level: any;
-  itemLevel: any;
-  guild: any;
-  stats: {
-    basic: any;
-    battle: any;
-    virtues: any;
-    engraving: any;
-  };
-  gemList: Array<any>;
-  gearList: Array<any>;
-  accessoryList: Array<any>;
-  avatarList: Array<any>;
-  cardList: Array<any>;
-  elixir: Array<any>;
-  ownUserName: Array<any>;
-}
-
 @Injectable()
-export class ContentsService {
+export class CharacterService {
   constructor(private prisma: PrismaService) {}
 
-  async getTestTableData(name: String) {
+  async findCharacter(name: string) {
+    return await this.prisma.character.findFirst({
+      include: {
+        character_accessory: true,
+        character_gear: true,
+        character_gem: true,
+      },
+      where: {
+        name: name,
+      },
+    });
+  }
+
+  async upsert(name: string) {
+    const isCharacter = await this.prisma.character.count({
+      where: {
+        name: name,
+      },
+    });
+
     const agent = new https.Agent({
       rejectUnauthorized: false,
     });
@@ -84,9 +45,12 @@ export class ContentsService {
         const $ = cheerio.load(html);
         let character: ICharacter = {
           userName: '',
+          class: '',
           level: undefined,
           itemLevel: undefined,
-          guild: undefined,
+          guildName: undefined,
+          serverName: undefined,
+          imageUri: undefined,
           stats: {
             basic: undefined,
             battle: undefined,
@@ -119,24 +83,32 @@ export class ContentsService {
           .replace(/;/gi, '');
 
         const scriptJson: IScript = JSON.parse(script);
+        if (!scriptJson) {
+          throw new ApolloError('캐릭터 정보가 없습니다.');
+        }
 
         character.gemList = Object.entries(scriptJson.Equip)
           .filter((obj) => obj[0].match('Gem'))
-          .map((obj: any) => {
+          .map((obj: any, index: number) => {
             const regex =
               /\[([^\]]+)\] ([^0-9]+) (재사용 대기시간|피해) ([0-9.]+)% (감소|증가)/g;
+            const data: string = JSON.stringify(obj[1]).replace(reg, '');
             const gemInfo = regex.exec(
               obj[1].Element_004.value.Element_001.replace(reg, ''),
             );
+            const imageUriRegex = /"iconPath":"(.*?)"/;
+            const imageMatch = imageUriRegex.exec(data);
 
             let gem: IGem = {
               name: obj[1].Element_000.value.replace(reg, ''),
+              imageUri: imageMatch ? imageMatch[1] : '',
+              slot: index,
               tier: parseInt(
                 JSON.stringify(obj[1].Element_001.value).match(
                   /아이템 티어 (\d+)/,
                 )[1],
               ),
-              job: gemInfo[1].trim(),
+              class: gemInfo[1].trim(),
               skill: gemInfo[2].trim(),
               effectType: gemInfo[3].trim(),
               rate: parseFloat(gemInfo[4]),
@@ -151,16 +123,17 @@ export class ContentsService {
             const num = parseInt(obj[0].split('_')[1]);
             return [0, 1, 2, 3, 4, 5].includes(num);
           })
-          .map((obj: any) => {
+          .map((obj: any, index: number) => {
             const data: string = JSON.stringify(obj[1]).replace(reg, '');
             // const setEffect = data.Element_009.value.Element_000.topStr
 
             const itemNameRegex = /"type":"NameTagBox","value":"([^"]+)"/;
             const itemLevelRegex = /"leftStr2":"아이템 레벨 (\d+)/;
-            const itemTierRegex = /\(티어 ([\d]+)\)/;
+            const itemTierRegex = /\(티어 (\d+)\)/;
             const qualityRegex = /"qualityValue":(\d+)/;
             const baseEffectRegex = /"기본 효과","[^"]+":"([^"]+)"/;
             const additionalEffectRegex = /"추가 효과","[^"]+":"([^"]+)"/;
+            const imageUriRegex = /"iconPath":"(.*?)"/;
 
             const setNameRegex = /"topStr":"([가-힣\s]+)"},"Element_001"/;
             const setEffectRegex =
@@ -171,7 +144,7 @@ export class ContentsService {
 
             let setEffect = [];
             let setEffectMatch;
-
+            const imageMatch = imageUriRegex.exec(data);
             while ((setEffectMatch = setEffectRegex.exec(data)) !== null) {
               setEffect.push({
                 bPoint: setEffectMatch[1] === 'true',
@@ -182,9 +155,13 @@ export class ContentsService {
 
             let gear: IGear = {
               name: data.match(itemNameRegex)[1],
+              imageUri: imageMatch ? imageMatch[1] : '',
+              slot: index,
               quality: parseInt(data.match(qualityRegex)[1]),
               level: parseInt(data.match(itemLevelRegex)[1]),
               tier: parseInt(data.match(itemTierRegex)[1]),
+              setName: setName,
+              setEffect: setEffect,
               baseEffect: baseEffectRegex
                 .exec(data)[1]
                 .split(/(?<=\d)(?=[가-힣])/),
@@ -201,7 +178,7 @@ export class ContentsService {
             const num = parseInt(obj[0].split('_')[1]);
             return [6, 7, 8, 9, 10, 11, 26].includes(num);
           })
-          .map((obj) => {
+          .map((obj, index) => {
             const data: string = JSON.stringify(obj[1]).replace(reg, '');
 
             const nameRegex = /"type":"NameTagBox","value":"([^"]+)"/;
@@ -230,9 +207,13 @@ export class ContentsService {
             let braceletEffect = [];
             if (braceletMatch) {
               const basicStats = braceletMatch[1].match(basicStatsRegex);
-              const specialAbilities = braceletMatch[1]
-                .match(specialAbilitiesRegex)
-                .map((ability) => ability.slice(0, -1));
+              const specialAbilities = braceletMatch[1].match(
+                specialAbilitiesRegex,
+              )
+                ? braceletMatch[1]
+                    .match(specialAbilitiesRegex)
+                    .map((ability) => ability.slice(0, -1))
+                : [];
               braceletEffect = basicStats.concat(specialAbilities);
             }
             let match;
@@ -247,6 +228,7 @@ export class ContentsService {
             const accessory: IAccessory = {
               name: nameMatch ? nameMatch[1] : '',
               imageUri: imageMatch ? imageMatch[1] : '',
+              slot: index,
               tier: tierMatch ? parseInt(data.match(itemTierRegex)[1]) : -1,
               quality: qualityMatch
                 ? parseInt(data.match(qualityRegex)[1])
@@ -264,10 +246,13 @@ export class ContentsService {
           });
 
         // 레벨
-        character.level = $('.profile-character-info__lv').text();
+        character.level = $('.profile-character-info__lv')
+          .text()
+          .replace('Lv.', '');
         // 템렙
         $('.level-info2__item > span').each(function (index, item) {
-          if (index === 1) character.itemLevel = $(this).text();
+          if (index === 1)
+            character.itemLevel = $(this).text().replace('Lv.', '');
         });
 
         // 기본스탯
@@ -292,22 +277,194 @@ export class ContentsService {
           },
         );
         character.ownUserName = temp;
+        character.class = $(
+          '#lostark-wrapper > div > main > div > div.profile-character-info > img[src]',
+        ).attr().alt;
+        character.guildName = $(
+          '#lostark-wrapper > div > main > div > div.profile-ingame > div.profile-info > div.game-info > div.game-info__guild > span:nth-child(2)',
+        ).text();
+        character.serverName = $(
+          '#lostark-wrapper > div > main > div > div.profile-character-info > span.profile-character-info__server',
+        )
+          .text()
+          .replace('@', '');
+        character.imageUri = $(
+          '#profile-equipment > div.profile-equipment__character > img',
+        ).attr().src;
+
         return character;
       });
 
-    return '';
+    // 1. 캐릭터 기본 정보
+    const character = await this.prisma.character.upsert({
+      where: {
+        name: name,
+      },
+      create: {
+        name: name,
+        class: dt.class,
+        level: parseInt(dt.level),
+        item_level: parseFloat(dt.itemLevel.replace(',', '')),
+        guild_name: dt.guildName,
+        server_name: dt.serverName,
+        ...dt.stats.basic,
+        ...dt.stats.battle,
+        ...dt.stats.virtues,
+        engraving: JSON.stringify(dt.stats.engraving),
+        image_uri: dt.imageUri,
+        ins_date: new Date(),
+        upd_date: new Date(),
+      },
+      update: {
+        level: parseInt(dt.level),
+        item_level: parseFloat(dt.itemLevel.replace(',', '')),
+        guild_name: dt.guildName,
+        ...dt.stats.basic,
+        ...dt.stats.battle,
+        ...dt.stats.virtues,
+        engraving: JSON.stringify(dt.stats.engraving),
+        image_uri: dt.imageUri,
+        upd_date: new Date(),
+      },
+    });
+
+    // 2. 보석
+    const characterGemList = await this.prisma.character_gem.findMany({
+      where: {
+        character_id: character.id,
+      },
+    });
+    const gemList = await this.prisma.gem.findMany({
+      where: {
+        id: { in: characterGemList.map((x) => x.gem_id) },
+      },
+    });
+    dt.gemList.map(async (x) => {
+      const gem = await this.prisma.gem.upsert({
+        where: {
+          name_skill: {
+            name: x.name,
+            skill: x.skill,
+          },
+        },
+        create: {
+          name: x.name,
+          image_uri: x.imageUri,
+          skill: x.skill,
+          tier: x.tier,
+          class: x.class,
+          rate: x.rate,
+          effect_type: x.effectType,
+          direction: x.direction,
+        },
+        update: {
+          name: x.name,
+          image_uri: x.imageUri,
+          skill: x.skill,
+          tier: x.tier,
+          class: x.class,
+          rate: x.rate,
+          effect_type: x.effectType,
+          direction: x.direction,
+        },
+      });
+      await this.prisma.character_gem.upsert({
+        where: {
+          character_id_slot: {
+            character_id: character.id,
+            slot: x.slot,
+          },
+        },
+        create: {
+          character_id: character.id,
+          gem_id: gem.id,
+          slot: x.slot,
+        },
+        update: {
+          gem_id: gem.id,
+        },
+      });
+    });
+
+    // 3. 장비
+    dt.gearList.map(async (x) => {
+      await this.prisma.character_gear.upsert({
+        where: {
+          character_id_slot: {
+            character_id: character.id,
+            slot: x.slot,
+          },
+        },
+        create: {
+          character_id: character.id,
+          slot: x.slot,
+          name: x.name,
+          image_uri: x.imageUri,
+          tier: x.tier,
+          quality: x.quality,
+          set_name: x.setName,
+          base_effect: JSON.stringify(x.baseEffect),
+          additional_effect: JSON.stringify(x.additionalEffect),
+        },
+        update: {
+          name: x.name,
+          image_uri: x.imageUri,
+          tier: x.tier,
+          quality: x.quality,
+          set_name: x.setName,
+          base_effect: JSON.stringify(x.baseEffect),
+          additional_effect: JSON.stringify(x.additionalEffect),
+        },
+      });
+    });
+
+    // 4.악세사리
+    dt.accessoryList.map(async (x) => {
+      await this.prisma.character_accessory.upsert({
+        where: {
+          character_id_slot: {
+            character_id: character.id,
+            slot: x.slot,
+          },
+        },
+        create: {
+          character_id: character.id,
+          slot: x.slot,
+          name: x.name,
+          image_uri: x.imageUri,
+          tier: x.tier,
+          quality: x.quality,
+          base_effect: JSON.stringify(x.baseEffect),
+          additional_effect: JSON.stringify(x.additionalEffect),
+          engraving: JSON.stringify(x.engraving),
+          bracelet_effect: JSON.stringify(x.braceletEffect),
+        },
+        update: {
+          name: x.name,
+          image_uri: x.imageUri,
+          tier: x.tier,
+          quality: x.quality,
+          base_effect: JSON.stringify(x.baseEffect),
+          additional_effect: JSON.stringify(x.additionalEffect),
+          engraving: JSON.stringify(x.engraving),
+          bracelet_effect: JSON.stringify(x.braceletEffect),
+        },
+      });
+    });
+
+    return true;
   }
 
   basicStats = ($) => {
     return {
-      attackPower: parseInt(
+      attack_power: parseInt(
         $(
           '#profile-ability > div.profile-ability-basic > ul > li:nth-child(1) > span:nth-child(2)',
         )
           .text()
           .trim(),
       ),
-      maxHealth: parseInt(
+      max_health: parseInt(
         $(
           '#profile-ability > div.profile-ability-basic > ul > li:nth-child(2) > span:nth-child(2)',
         )

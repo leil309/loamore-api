@@ -5,14 +5,14 @@ generator client {
 generator nestgraphql {
   provider                          = "node node_modules/prisma-nestjs-graphql"
   output                            = "../src/@generated"
+  purgeOutput                       = "true"
+  fields_Validator_input            = "true"
+  fields_Validator_from             = "class-validator"
   graphqlScalars_DateTime_name      = "GraphQLDateTime"
   graphqlScalars_BigInt_name        = "GraphQLBigInt"
-  purgeOutput                       = "true"
-  fields_Validator_from             = "class-validator"
-  graphqlScalars_DateTime_specifier = "graphql-scalars"
   noTypeId                          = "true"
+  graphqlScalars_DateTime_specifier = "graphql-scalars"
   graphqlScalars_BigInt_specifier   = "graphql-scalars"
-  fields_Validator_input            = "true"
 }
 
 datasource db {
@@ -20,7 +20,136 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model table_name {
-  id   BigInt  @id @default(autoincrement())
-  text String? @db.VarChar(200)
+model character {
+  id             BigInt   @id @default(autoincrement())
+  name           String   @unique(map: "UNIQUE") @db.VarChar(50)
+  class          String   @db.VarChar(50)
+  level          Int      @db.TinyInt
+  item_level     Float    @db.Float
+  guild_name     String?  @db.VarChar(50)
+  server_name    String   @db.VarChar(50)
+  image_uri      String   @db.VarChar(512)
+  attack_power   Int
+  max_health     Int
+  critical       Int      @db.SmallInt
+  specialization Int      @db.SmallInt
+  domination     Int      @db.SmallInt
+  swiftness      Int      @db.SmallInt
+  endurance      Int      @db.SmallInt
+  expertise      Int      @db.SmallInt
+  engraving      String   @db.VarChar(512)
+  wisdom         Int      @db.SmallInt
+  courage        Int      @db.SmallInt
+  charisma       Int      @db.SmallInt
+  kindness       Int      @db.SmallInt
+  ins_date       DateTime @default(now()) @db.DateTime(0)
+  upd_date       DateTime @default(now()) @db.DateTime(0)
+  character_accessory character_accessory[]
+  character_gear      character_gear[]
+  character_gem       character_gem[]
+}
+
+model character_accessory {
+  id                BigInt  @id @default(autoincrement())
+  character_id      BigInt
+  character         character @relation(fields: [character_id], references: [id])
+  slot              Int     @db.TinyInt
+  name              String  @db.VarChar(100)
+  image_uri         String  @db.VarChar(512)
+  tier              Int     @db.TinyInt
+  quality           Int?    @db.TinyInt
+  base_effect       String? @db.VarChar(100)
+  additional_effect String? @db.VarChar(100)
+  bracelet_effect   String? @db.VarChar(300)
+  engraving         String? @db.VarChar(200)
+
+  @@unique([character_id, slot], map: "SUPER")
+}
+
+model character_gear {
+  id                BigInt  @id @default(autoincrement())
+  character_id      BigInt
+  character         character @relation(fields: [character_id], references: [id])
+  slot              Int     @db.TinyInt
+  name              String  @db.VarChar(50)
+  image_uri         String  @db.VarChar(512)
+  tier              Int?    @db.TinyInt
+  quality           Int?    @db.TinyInt
+  set_name          String? @db.VarChar(20)
+  base_effect       String? @db.VarChar(150)
+  additional_effect String? @db.VarChar(150)
+
+  @@unique([character_id, slot], map: "SUPER")
+}
+
+model character_gem {
+  id           BigInt @id @default(autoincrement())
+  character_id BigInt
+  character    character @relation(fields: [character_id], references: [id])
+  gem_id       BigInt
+  slot         Int    @db.TinyInt
+
+  @@unique([character_id, slot], map: "SUPER")
+}
+
+model gem {
+  id          BigInt @id @default(autoincrement())
+  name        String @db.VarChar(100)
+  tier        Int    @db.TinyInt
+  skill       String @db.VarChar(128)
+  class       String @db.VarChar(128)
+  rate        Int    @db.TinyInt
+  effect_type String @db.VarChar(20)
+  direction   String @db.VarChar(10)
+  image_uri   String @db.VarChar(512)
+
+  @@unique([name, skill], map: "SUPER")
+}
+
+model item {
+  id               BigInt           @id @default(autoincrement())
+  name             String           @db.VarChar(512)
+  item_uri         String           @db.VarChar(512)
+  category_name    String           @db.VarChar(512)
+  category_type    String           @db.VarChar(512)
+  item_level       String           @db.VarChar(512)
+  set_item_yn      item_set_item_yn
+  enhance_yn       item_enhance_yn
+  basic_info       String           @db.VarChar(512)
+  acquisition_info String           @db.VarChar(512)
+  ins_date         DateTime         @db.DateTime(0)
+  upd_date         DateTime         @db.DateTime(0)
+}
+
+model ranking {
+  id              BigInt   @id @default(autoincrement())
+  character_id    BigInt
+  rank            BigInt
+  name            String   @db.VarChar(50)
+  server_name     String   @db.VarChar(50)
+  image_uri       String   @db.VarChar(512)
+  weapon          String   @db.VarChar(50)
+  class_engraving String   @db.VarChar(50)
+  gear_set        String   @db.VarChar(50)
+  main_stats      String   @db.VarChar(50)
+  ins_date        DateTime @db.DateTime(0)
+  upd_date        DateTime @db.DateTime(0)
+}
+
+model user {
+  id            BigInt   @id @default(autoincrement())
+  character_id  BigInt
+  own_character String   @db.VarChar(500)
+  ins_date      DateTime @db.DateTime(0)
+  upd_date      DateTime @db.DateTime(0)
+}
+
+enum item_set_item_yn {
+  Y
+  N
+}
+
+enum item_enhance_yn {
+  Y
+  N
 }
