@@ -11,6 +11,7 @@ interface IGem {
   name: string;
   imageUri: string;
   slot: number;
+  level: number;
   tier: number;
   skill: string;
   class: string;

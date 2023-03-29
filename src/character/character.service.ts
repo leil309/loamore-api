@@ -4,17 +4,22 @@ import * as cheerio from 'cheerio';
 import { ApolloError } from 'apollo-server-express';
 import * as https from 'https';
 import axios from 'axios';
+import { gem } from '../@generated/gem/gem.model';
 
 @Injectable()
 export class CharacterService {
   constructor(private prisma: PrismaService) {}
 
   async findCharacter(name: string) {
-    return await this.prisma.character.findFirst({
+    return this.prisma.character.findFirst({
       include: {
         character_accessory: true,
         character_gear: true,
-        character_gem: true,
+        character_gem: {
+          include: {
+            gem: true,
+          },
+        },
       },
       where: {
         name: name,
@@ -96,13 +101,18 @@ export class CharacterService {
             const gemInfo = regex.exec(
               obj[1].Element_004.value.Element_001.replace(reg, ''),
             );
+
+            const levelRegex = /(\d+)레벨/;
             const imageUriRegex = /"iconPath":"(.*?)"/;
+
+            const levelMatch = levelRegex.exec(data);
             const imageMatch = imageUriRegex.exec(data);
 
             let gem: IGem = {
               name: obj[1].Element_000.value.replace(reg, ''),
               imageUri: imageMatch ? imageMatch[1] : '',
               slot: index,
+              level: levelMatch ? parseInt(levelMatch[1]) : 0,
               tier: parseInt(
                 JSON.stringify(obj[1].Element_001.value).match(
                   /아이템 티어 (\d+)/,
@@ -351,6 +361,7 @@ export class CharacterService {
           name: x.name,
           image_uri: x.imageUri,
           skill: x.skill,
+          level: x.level,
           tier: x.tier,
           class: x.class,
           rate: x.rate,
@@ -361,6 +372,7 @@ export class CharacterService {
           name: x.name,
           image_uri: x.imageUri,
           skill: x.skill,
+          level: x.level,
           tier: x.tier,
           class: x.class,
           rate: x.rate,
