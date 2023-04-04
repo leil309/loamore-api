@@ -4,7 +4,6 @@ import * as cheerio from 'cheerio';
 import { ApolloError } from 'apollo-server-express';
 import * as https from 'https';
 import axios from 'axios';
-import { gem } from '../@generated/gem/gem.model';
 
 @Injectable()
 export class CharacterService {
@@ -13,11 +12,19 @@ export class CharacterService {
   async findCharacter(name: string) {
     return this.prisma.character.findFirst({
       include: {
-        character_accessory: true,
-        character_gear: true,
+        character_accessory: {
+          include: {
+            item: true,
+          },
+        },
+        character_gear: {
+          include: {
+            item: true,
+          },
+        },
         character_gem: {
           include: {
-            gem: true,
+            item: true,
           },
         },
       },
@@ -56,6 +63,7 @@ export class CharacterService {
           guildName: undefined,
           serverName: undefined,
           imageUri: undefined,
+          engraving: undefined,
           stats: {
             basic: undefined,
             battle: undefined,
@@ -137,7 +145,8 @@ export class CharacterService {
             const data: string = JSON.stringify(obj[1]).replace(reg, '');
             // const setEffect = data.Element_009.value.Element_000.topStr
 
-            const itemNameRegex = /"type":"NameTagBox","value":"([^"]+)"/;
+            const itemNameRegex =
+              /"type":"NameTagBox","value":"\+?(\d+)?([^"]+)"/; // /"type":"NameTagBox","value":"\+(\d+)?([^"]+)"/
             const itemLevelRegex = /"leftStr2":"아이템 레벨 (\d+)/;
             const itemTierRegex = /\(티어 (\d+)\)/;
             const qualityRegex = /"qualityValue":(\d+)/;
@@ -164,20 +173,31 @@ export class CharacterService {
             }
 
             let gear: IGear = {
-              name: data.match(itemNameRegex)[1],
+              name: itemNameRegex.exec(data)[2].trim(),
+              honing: itemNameRegex.exec(data)[1]
+                ? parseInt(itemNameRegex.exec(data)[1])
+                : 0,
               imageUri: imageMatch ? imageMatch[1] : '',
               slot: index,
-              quality: parseInt(data.match(qualityRegex)[1]),
-              level: parseInt(data.match(itemLevelRegex)[1]),
-              tier: parseInt(data.match(itemTierRegex)[1]),
+              quality: data.match(qualityRegex)
+                ? parseInt(data.match(qualityRegex)[1])
+                : -1,
+              level: data.match(itemLevelRegex)
+                ? parseInt(data.match(itemLevelRegex)[1])
+                : -1,
+              tier: data.match(itemTierRegex)
+                ? parseInt(data.match(itemTierRegex)[1])
+                : -1,
               setName: setName,
               setEffect: setEffect,
-              baseEffect: baseEffectRegex
-                .exec(data)[1]
-                .split(/(?<=\d)(?=[가-힣])/),
-              additionalEffect: additionalEffectRegex
-                .exec(data)[1]
-                .split(/(?<=\d)(?=[가-힣])/),
+              baseEffect: baseEffectRegex.exec(data)
+                ? baseEffectRegex.exec(data)[1].split(/(?<=\d)(?=[가-힣])/)
+                : [],
+              additionalEffect: additionalEffectRegex.exec(data)
+                ? additionalEffectRegex
+                    .exec(data)[1]
+                    .split(/(?<=\d)(?=[가-힣])/)
+                : [],
             };
             return gear;
           });
@@ -254,6 +274,35 @@ export class CharacterService {
             };
             return accessory;
           });
+
+        character.engraving = Object.entries(scriptJson.Engrave).map(
+          (obj, index) => {
+            const data: string = JSON.stringify(obj[1]).replace(reg, '');
+
+            const nameRegex = /"value":"(.+?)"/;
+            const effectRegex = /"레벨 별 효과보기","Element_001":"(.+?)"/;
+            const imageUriRegex = /"iconPath":"(.*?)"/;
+
+            const nameMatch = data.match(nameRegex);
+            const effectMatch = data.match(effectRegex);
+            const imageMatch = data.match(imageUriRegex);
+
+            const name = nameMatch[1];
+            const levelEffects = effectMatch
+              ? effectMatch[1].split(/레벨 \d+ \(활성도 \d+\) - /)
+              : [];
+
+            if (levelEffects && levelEffects.length >= 4) {
+              levelEffects.shift();
+            }
+
+            return {
+              name: name,
+              imageUri: imageMatch ? imageMatch[1] : '',
+              info: JSON.stringify(levelEffects.concat()),
+            };
+          },
+        );
 
         // 레벨
         character.level = $('.profile-character-info__lv')
@@ -339,45 +388,19 @@ export class CharacterService {
     });
 
     // 2. 보석
-    const characterGemList = await this.prisma.character_gem.findMany({
-      where: {
-        character_id: character.id,
-      },
-    });
-    const gemList = await this.prisma.gem.findMany({
-      where: {
-        id: { in: characterGemList.map((x) => x.gem_id) },
-      },
-    });
     dt.gemList.map(async (x) => {
-      const gem = await this.prisma.gem.upsert({
+      const gem = await this.prisma.item.upsert({
         where: {
-          name_skill: {
-            name: x.name,
-            skill: x.skill,
-          },
+          name: x.name.trim(),
         },
         create: {
-          name: x.name,
+          name: x.name.trim(),
           image_uri: x.imageUri,
-          skill: x.skill,
-          level: x.level,
           tier: x.tier,
-          class: x.class,
-          rate: x.rate,
-          effect_type: x.effectType,
-          direction: x.direction,
         },
         update: {
-          name: x.name,
           image_uri: x.imageUri,
-          skill: x.skill,
-          level: x.level,
           tier: x.tier,
-          class: x.class,
-          rate: x.rate,
-          effect_type: x.effectType,
-          direction: x.direction,
         },
       });
       await this.prisma.character_gem.upsert({
@@ -389,17 +412,44 @@ export class CharacterService {
         },
         create: {
           character_id: character.id,
-          gem_id: gem.id,
+          item_id: gem.id,
           slot: x.slot,
+          level: x.level,
+          skill: x.skill,
+          rate: x.rate,
+          effect_type: x.effectType,
+          direction: x.direction,
         },
         update: {
-          gem_id: gem.id,
+          item_id: gem.id,
+          level: x.level,
+          skill: x.skill,
+          rate: x.rate,
+          effect_type: x.effectType,
+          direction: x.direction,
         },
       });
     });
 
     // 3. 장비
     dt.gearList.map(async (x) => {
+      const gear = await this.prisma.item.upsert({
+        where: {
+          name: x.name,
+        },
+        create: {
+          name: x.name,
+          image_uri: x.imageUri,
+          tier: x.tier,
+          set_name: x.setName,
+        },
+        update: {
+          image_uri: x.imageUri,
+          tier: x.tier,
+          set_name: x.setName,
+        },
+      });
+
       await this.prisma.character_gear.upsert({
         where: {
           character_id_slot: {
@@ -408,22 +458,18 @@ export class CharacterService {
           },
         },
         create: {
+          item_id: gear.id,
           character_id: character.id,
           slot: x.slot,
-          name: x.name,
-          image_uri: x.imageUri,
-          tier: x.tier,
+          honing: x.honing,
           quality: x.quality,
-          set_name: x.setName,
           base_effect: JSON.stringify(x.baseEffect),
           additional_effect: JSON.stringify(x.additionalEffect),
         },
         update: {
-          name: x.name,
-          image_uri: x.imageUri,
-          tier: x.tier,
+          item_id: gear.id,
+          honing: x.honing,
           quality: x.quality,
-          set_name: x.setName,
           base_effect: JSON.stringify(x.baseEffect),
           additional_effect: JSON.stringify(x.additionalEffect),
         },
@@ -432,6 +478,21 @@ export class CharacterService {
 
     // 4.악세사리
     dt.accessoryList.map(async (x) => {
+      const acceossry = await this.prisma.item.upsert({
+        where: {
+          name: x.name,
+        },
+        create: {
+          name: x.name,
+          image_uri: x.imageUri,
+          tier: x.tier,
+        },
+        update: {
+          image_uri: x.imageUri,
+          tier: x.tier,
+        },
+      });
+
       await this.prisma.character_accessory.upsert({
         where: {
           character_id_slot: {
@@ -440,11 +501,9 @@ export class CharacterService {
           },
         },
         create: {
+          item_id: acceossry.id,
           character_id: character.id,
           slot: x.slot,
-          name: x.name,
-          image_uri: x.imageUri,
-          tier: x.tier,
           quality: x.quality,
           base_effect: JSON.stringify(x.baseEffect),
           additional_effect: JSON.stringify(x.additionalEffect),
@@ -452,14 +511,31 @@ export class CharacterService {
           bracelet_effect: JSON.stringify(x.braceletEffect),
         },
         update: {
-          name: x.name,
-          image_uri: x.imageUri,
-          tier: x.tier,
+          item_id: acceossry.id,
           quality: x.quality,
           base_effect: JSON.stringify(x.baseEffect),
           additional_effect: JSON.stringify(x.additionalEffect),
           engraving: JSON.stringify(x.engraving),
           bracelet_effect: JSON.stringify(x.braceletEffect),
+        },
+      });
+    });
+
+    // 5.각인정보 수집
+    dt.engraving.map(async (x) => {
+      await this.prisma.engraving.upsert({
+        where: {
+          name: x.name,
+        },
+        create: {
+          name: x.name,
+          image_uri: x.imageUri,
+          info: x.info,
+        },
+        update: {
+          name: x.name,
+          image_uri: x.imageUri,
+          info: x.info,
         },
       });
     });

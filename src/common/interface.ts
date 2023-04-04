@@ -21,6 +21,7 @@ interface IGem {
 }
 interface IGear {
   name: string;
+  honing: number;
   imageUri: string;
   slot: number;
   tier: number;
@@ -42,6 +43,11 @@ interface IAccessory {
   additionalEffect: Array<string>;
   braceletEffect: Array<string>;
   engraving: Array<any>;
+}
+interface IEngraving {
+  name: string;
+  imageUri: string;
+  info: string;
 }
 
 interface ICharacter {
@@ -73,6 +79,7 @@ interface ICharacter {
     engraving: any;
   };
   imageUri: string;
+  engraving: Array<IEngraving>;
   gemList: Array<IGem>;
   gearList: Array<IGear>;
   accessoryList: Array<IAccessory>;
