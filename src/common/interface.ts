@@ -46,6 +46,7 @@ interface IAccessory {
 }
 interface IEngraving {
   name: string;
+  classYn: 'Y' | 'N';
   imageUri: string;
   info: string;
 }

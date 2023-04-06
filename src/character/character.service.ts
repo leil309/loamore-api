@@ -27,6 +27,11 @@ export class CharacterService {
             item: true,
           },
         },
+        character_engraving: {
+          include: {
+            engraving: true,
+          },
+        },
       },
       where: {
         name: name,
@@ -106,18 +111,18 @@ export class CharacterService {
             const regex =
               /\[([^\]]+)\] ([^0-9]+) (재사용 대기시간|피해) ([0-9.]+)% (감소|증가)/g;
             const data: string = JSON.stringify(obj[1]).replace(reg, '');
-            const gemInfo = regex.exec(
-              obj[1].Element_004.value.Element_001.replace(reg, ''),
-            );
+            const gemInfo = regex.exec(data);
 
+            const nameRegex = /"type":"NameTagBox","value":"([^"]+)"/;
             const levelRegex = /(\d+)레벨/;
             const imageUriRegex = /"iconPath":"(.*?)"/;
 
+            const nameMatch = nameRegex.exec(data);
             const levelMatch = levelRegex.exec(data);
             const imageMatch = imageUriRegex.exec(data);
 
             let gem: IGem = {
-              name: obj[1].Element_000.value.replace(reg, ''),
+              name: nameMatch ? nameMatch[1] : '',
               imageUri: imageMatch ? imageMatch[1] : '',
               slot: index,
               level: levelMatch ? parseInt(levelMatch[1]) : 0,
@@ -126,11 +131,11 @@ export class CharacterService {
                   /아이템 티어 (\d+)/,
                 )[1],
               ),
-              class: gemInfo[1].trim(),
-              skill: gemInfo[2].trim(),
-              effectType: gemInfo[3].trim(),
-              rate: parseFloat(gemInfo[4]),
-              direction: gemInfo[5].trim(),
+              class: gemInfo ? gemInfo[1].trim() : '',
+              skill: gemInfo ? gemInfo[2].trim() : '',
+              effectType: gemInfo ? gemInfo[3].trim() : '',
+              rate: gemInfo ? parseFloat(gemInfo[4]) : 0,
+              direction: gemInfo ? gemInfo[5].trim() : '',
             };
             return gem;
           });
@@ -280,10 +285,12 @@ export class CharacterService {
             const data: string = JSON.stringify(obj[1]).replace(reg, '');
 
             const nameRegex = /"value":"(.+?)"/;
+            const isClassRegex = /name":"(.+?)"/;
             const effectRegex = /"레벨 별 효과보기","Element_001":"(.+?)"/;
             const imageUriRegex = /"iconPath":"(.*?)"/;
 
             const nameMatch = data.match(nameRegex);
+            const isClassMatch = data.match(isClassRegex);
             const effectMatch = data.match(effectRegex);
             const imageMatch = data.match(imageUriRegex);
 
@@ -298,6 +305,11 @@ export class CharacterService {
 
             return {
               name: name,
+              classYn: isClassMatch
+                ? isClassMatch[1] === '직업'
+                  ? 'Y'
+                  : 'N'
+                : 'N',
               imageUri: imageMatch ? imageMatch[1] : '',
               info: JSON.stringify(levelEffects.concat()),
             };
@@ -369,7 +381,6 @@ export class CharacterService {
         ...dt.stats.basic,
         ...dt.stats.battle,
         ...dt.stats.virtues,
-        engraving: JSON.stringify(dt.stats.engraving),
         image_uri: dt.imageUri,
         ins_date: new Date(),
         upd_date: new Date(),
@@ -381,7 +392,6 @@ export class CharacterService {
         ...dt.stats.basic,
         ...dt.stats.battle,
         ...dt.stats.virtues,
-        engraving: JSON.stringify(dt.stats.engraving),
         image_uri: dt.imageUri,
         upd_date: new Date(),
       },
@@ -478,7 +488,7 @@ export class CharacterService {
 
     // 4.악세사리
     dt.accessoryList.map(async (x) => {
-      const acceossry = await this.prisma.item.upsert({
+      const accessory = await this.prisma.item.upsert({
         where: {
           name: x.name,
         },
@@ -501,7 +511,7 @@ export class CharacterService {
           },
         },
         create: {
-          item_id: acceossry.id,
+          item_id: accessory.id,
           character_id: character.id,
           slot: x.slot,
           quality: x.quality,
@@ -511,7 +521,7 @@ export class CharacterService {
           bracelet_effect: JSON.stringify(x.braceletEffect),
         },
         update: {
-          item_id: acceossry.id,
+          item_id: accessory.id,
           quality: x.quality,
           base_effect: JSON.stringify(x.baseEffect),
           additional_effect: JSON.stringify(x.additionalEffect),
@@ -521,7 +531,40 @@ export class CharacterService {
       });
     });
 
-    // 5.각인정보 수집
+    // 5.각인
+    dt.stats.engraving.map(async (x, index) => {
+      const engraving = await this.prisma.engraving.upsert({
+        where: {
+          name: x.name,
+        },
+        create: {
+          name: x.name,
+          image_uri: '',
+          info: '',
+        },
+        update: {},
+      });
+
+      await this.prisma.character_engraving.upsert({
+        where: {
+          character_id_slot: {
+            character_id: character.id,
+            slot: index,
+          },
+        },
+        create: {
+          character_id: character.id,
+          engraving_id: engraving.id,
+          level: x.level,
+          slot: index,
+        },
+        update: {
+          engraving_id: engraving.id,
+          level: x.level,
+        },
+      });
+    });
+
     dt.engraving.map(async (x) => {
       await this.prisma.engraving.upsert({
         where: {
@@ -529,11 +572,12 @@ export class CharacterService {
         },
         create: {
           name: x.name,
+          class_yn: x.classYn,
           image_uri: x.imageUri,
           info: x.info,
         },
         update: {
-          name: x.name,
+          class_yn: x.classYn,
           image_uri: x.imageUri,
           info: x.info,
         },
@@ -623,14 +667,8 @@ export class CharacterService {
 
   engraving = ($) => {
     const data = $(
-      '#profile-ability > div.profile-ability-engrave > div > div.swiper-wrapper',
-    )
-      .text()
-      .replace(/\t/gi, '')
-      .replace(/\n/gi, '')
-      .replace(/\\n/gi, '')
-      .replace(/\\t/gi, '')
-      .replace(/;/gi, '');
+      '#profile-ability > div.profile-ability-engrave > div > div.swiper-wrapper > ul > li > span',
+    ).text();
     const regex = /([가-힣\s]+) Lv\. (\d)+/g;
     const engravings = [];
 
