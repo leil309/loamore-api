@@ -61,14 +61,22 @@ interface ISkill {
   weakPoint: string;
   staggerValue: string;
   attackType: string;
+  tripods: Array<ITripod> | null | undefined;
+  rune: any | null | undefined;
+}
+interface ISkillAdd {
+  name: string;
+  class: string;
+  tripods: Array<ITripod>;
+  rune: any;
 }
 
 interface ITripod {
   name: string;
   imageUri: string;
   level: number;
-  effect: string;
   tier: number;
+  slot: number;
 }
 
 interface ICharacter {
@@ -105,7 +113,7 @@ interface ICharacter {
   gearList: Array<IGear>;
   accessoryList: Array<IAccessory>;
   skillList: Array<ISkill>;
-  tripodList: Array<ITripod>;
+  skillAdditionalInfo: Array<ISkillAdd>;
   avatarList: Array<any>;
   cardList: Array<any>;
   elixir: Array<any>;

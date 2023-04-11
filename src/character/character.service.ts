@@ -4,6 +4,7 @@ import * as cheerio from 'cheerio';
 import { ApolloError } from 'apollo-server-express';
 import * as https from 'https';
 import axios from 'axios';
+import * as _ from 'lodash';
 
 @Injectable()
 export class CharacterService {
@@ -76,7 +77,7 @@ export class CharacterService {
             engraving: undefined,
           },
           skillList: undefined,
-          tripodList: undefined,
+          skillAdditionalInfo: undefined,
           gearList: undefined,
           accessoryList: undefined,
           gemList: undefined,
@@ -190,12 +191,14 @@ export class CharacterService {
                 ? staggerValueMatch[1].trim()
                 : '',
               attackType: attackTypeMatch ? attackTypeMatch[1].trim() : '',
+              tripods: null,
+              rune: null,
             };
             return skill;
           },
         );
 
-        const tripodList = $(
+        character.skillAdditionalInfo = $(
           '#profile-skill > div.profile-skill-battle > div.profile-skill__list > div',
         )
           .children()
@@ -221,7 +224,7 @@ export class CharacterService {
               };
             }
 
-            let tripods = [];
+            let tripods: ITripod[] = [];
             if (skillData.tripodList) {
               skillData.tripodList.map((x) => {
                 tripods.push({
@@ -234,8 +237,9 @@ export class CharacterService {
               });
             }
 
-            const skillInfo: any = {
+            const skillInfo: ISkillAdd = {
               name: skillData.name,
+              class: character.class,
               tripods: tripods,
               rune: rune,
             };
@@ -510,8 +514,14 @@ export class CharacterService {
           tier: x.tier,
         },
       });
-      await this.prisma.character_gem.create({
-        data: {
+      await this.prisma.character_gem.upsert({
+        where: {
+          character_id_slot: {
+            character_id: character.id,
+            slot: x.slot,
+          },
+        },
+        create: {
           character_id: character.id,
           item_id: gem.id,
           slot: x.slot,
@@ -521,6 +531,7 @@ export class CharacterService {
           effect_type: x.effectType,
           direction: x.direction,
         },
+        update: {},
       });
     });
 
@@ -548,8 +559,14 @@ export class CharacterService {
         },
       });
 
-      await this.prisma.character_gear.create({
-        data: {
+      await this.prisma.character_gear.upsert({
+        where: {
+          character_id_slot: {
+            character_id: character.id,
+            slot: x.slot,
+          },
+        },
+        create: {
           item_id: gear.id,
           character_id: character.id,
           slot: x.slot,
@@ -558,6 +575,7 @@ export class CharacterService {
           base_effect: JSON.stringify(x.baseEffect),
           additional_effect: JSON.stringify(x.additionalEffect),
         },
+        update: {},
       });
     });
 
@@ -583,8 +601,14 @@ export class CharacterService {
         },
       });
 
-      await this.prisma.character_accessory.create({
-        data: {
+      await this.prisma.character_accessory.upsert({
+        where: {
+          character_id_slot: {
+            character_id: character.id,
+            slot: x.slot,
+          },
+        },
+        create: {
           item_id: accessory.id,
           character_id: character.id,
           slot: x.slot,
@@ -594,6 +618,7 @@ export class CharacterService {
           engraving: JSON.stringify(x.engraving),
           bracelet_effect: JSON.stringify(x.braceletEffect),
         },
+        update: {},
       });
     });
 
@@ -615,13 +640,20 @@ export class CharacterService {
         },
         update: {},
       });
-      await this.prisma.character_engraving.create({
-        data: {
+      await this.prisma.character_engraving.upsert({
+        where: {
+          character_id_slot: {
+            character_id: character.id,
+            slot: index,
+          },
+        },
+        create: {
           character_id: character.id,
           engraving_id: engraving.id,
           level: x.level,
           slot: index,
         },
+        update: {},
       });
     });
 
@@ -641,6 +673,49 @@ export class CharacterService {
           image_uri: x.imageUri,
           info: x.info,
         },
+      });
+    });
+
+    // 6.스킬
+    const skillList = _.merge(dt.skillList, dt.skillAdditionalInfo);
+    skillList.map(async (skillInfo) => {
+      const skill = await this.prisma.skill.upsert({
+        where: {
+          name_class: {
+            name: skillInfo.name,
+            class: skillInfo.class,
+          },
+        },
+        create: {
+          name: skillInfo.name,
+          class: skillInfo.class,
+          image_uri: skillInfo.imageUri,
+        },
+        update: {
+          image_uri: skillInfo.imageUri,
+        },
+      });
+      skillInfo.tripods.map(async (x) => {
+        await this.prisma.tripod.upsert({
+          where: {
+            name_skill_id: {
+              name: x.name,
+              skill_id: skill.id,
+            },
+          },
+          create: {
+            name: x.name,
+            skill_id: skill.id,
+            image_uri: x.imageUri,
+            tier: x.tier,
+            slot: x.slot,
+          },
+          update: {
+            image_uri: x.imageUri,
+            tier: x.tier,
+            slot: x.slot,
+          },
+        });
       });
     });
 

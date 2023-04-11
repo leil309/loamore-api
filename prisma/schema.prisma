@@ -5,14 +5,14 @@ generator client {
 generator nestgraphql {
   provider                          = "node node_modules/prisma-nestjs-graphql"
   output                            = "../src/@generated"
-  purgeOutput                       = "true"
-  graphqlScalars_DateTime_specifier = "graphql-scalars"
-  graphqlScalars_BigInt_name        = "GraphQLBigInt"
   graphqlScalars_DateTime_name      = "GraphQLDateTime"
-  fields_Validator_from             = "class-validator"
-  graphqlScalars_BigInt_specifier   = "graphql-scalars"
   noTypeId                          = "true"
+  graphqlScalars_BigInt_name        = "GraphQLBigInt"
+  graphqlScalars_BigInt_specifier   = "graphql-scalars"
+  graphqlScalars_DateTime_specifier = "graphql-scalars"
   fields_Validator_input            = "true"
+  purgeOutput                       = "true"
+  fields_Validator_from             = "class-validator"
 }
 
 datasource db {
@@ -83,10 +83,10 @@ model character_gear {
 
 model character_gem {
   id           BigInt @id @default(autoincrement())
-  character_id      BigInt
-  character         character @relation(fields: [character_id], references: [id])
-  item_id           BigInt
-  item              item      @relation(fields: [item_id], references: [id])
+  character_id BigInt
+  character    character @relation(fields: [character_id], references: [id])
+  item_id      BigInt
+  item         item      @relation(fields: [item_id], references: [id])
   slot         Int    @db.TinyInt
   level        Int    @db.TinyInt
   skill        String @db.VarChar(100)
@@ -100,9 +100,9 @@ model character_gem {
 model character_engraving {
   id           BigInt @id @default(autoincrement())
   character_id BigInt
-  character         character @relation(fields: [character_id], references: [id])
+  character    character @relation(fields: [character_id], references: [id])
   engraving_id BigInt
-  engraving         engraving @relation(fields: [engraving_id], references: [id])
+  engraving    engraving @relation(fields: [engraving_id], references: [id])
   slot         Int    @db.TinyInt
   level        Int    @db.TinyInt
 
@@ -114,10 +114,12 @@ model item {
   name      String  @unique(map: "UNIQUE") @db.VarChar(512)
   image_uri String  @db.VarChar(512)
   set_name  String? @db.VarChar(20)
+  grade     Int?    @db.TinyInt
   tier      Int?    @db.TinyInt
   character_accessory character_accessory[]
   character_gear      character_gear[]
   character_gem       character_gem[]
+  character_skill     character_skill[]
 }
 
 model engraving {
@@ -153,13 +155,19 @@ model user {
 }
 
 model character_skill {
-  id           BigInt @id
-  character_id BigInt
-  character    character @relation(fields: [character_id], references: [id])
-  skill_id     BigInt
-  skill        skill @relation(fields: [skill_id], references: [id])
-  rune_id      Int?
-  level        Int?   @default(1) @db.TinyInt
+  id            BigInt                     @id
+  character_id  BigInt
+  character     character @relation(fields: [character_id], references: [id])
+  skill_id      BigInt
+  skill         skill @relation(fields: [skill_id], references: [id])
+  rune_id       BigInt?
+  rune          item? @relation(fields: [rune_id], references: [id])
+  level         Int?                       @default(1) @db.TinyInt
+  counter_yn    character_skill_counter_yn @default(N)
+  super_armor   String?                    @db.VarChar(40)
+  weak_point    Int?                       @db.TinyInt
+  stagger_value String?                    @db.VarChar(5)
+  attack_type   String?                    @db.VarChar(10)
   character_skill_tripod character_skill_tripod[]
 }
 
@@ -174,36 +182,35 @@ model character_skill_tripod {
 }
 
 model skill {
-  id        BigInt  @id @default(autoincrement())
-  name      String  @db.VarChar(50)
-  image_uri String  @db.VarChar(512)
-  class     String  @db.VarChar(50)
-  info      String? @db.VarChar(2000)
+  id        BigInt @id @default(autoincrement())
+  name      String @db.VarChar(50)
+  image_uri String @db.VarChar(512)
+  class     String @db.VarChar(50)
   character_skill       character_skill[]
-  skill_tripod          skill_tripod[]
+  tripod                tripod[]
 
   @@unique([name, class], map: "SUPER")
 }
 
-model skill_tripod {
-  id        BigInt @id
-  skill_id  BigInt
-  skill     skill @relation(fields: [skill_id], references: [id])
-  tripod_id BigInt
-  tripod    tripod @relation(fields: [tripod_id], references: [id])
-  effect    String @db.VarChar(1000)
-  tier      Int    @default(1) @db.TinyInt
-}
-
 model tripod {
-  id        BigInt @id
-  name      String @db.VarChar(50)
+  id        BigInt @id @default(autoincrement())
+  skill_id  BigInt
+  skill     skill  @relation(fields: [skill_id], references: [id])
   image_uri String @db.VarChar(512)
-  character_skill_tripod    character_skill_tripod[]
-  skill_tripod              skill_tripod[]
+  name      String @db.VarChar(50)
+  tier      Int    @db.TinyInt
+  slot      Int    @db.TinyInt
+
+  character_skill_tripod character_skill_tripod[]
+  @@unique([name, skill_id], map: "SUPER")
 }
 
 enum class_yn {
+  Y
+  N
+}
+
+enum character_skill_counter_yn {
   Y
   N
 }
