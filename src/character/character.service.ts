@@ -75,6 +75,8 @@ export class CharacterService {
             virtues: undefined,
             engraving: undefined,
           },
+          skillList: undefined,
+          tripodList: undefined,
           gearList: undefined,
           accessoryList: undefined,
           gemList: undefined,
@@ -83,13 +85,56 @@ export class CharacterService {
           elixir: undefined,
           ownUserName: undefined,
         };
-
         // 닉네임
         character.userName = $('.profile-character-info__name').text().trim();
-
         if (!character.userName) {
           throw new ApolloError('존재하지 않는 캐릭터입니다.');
         }
+        // 레벨
+        character.level = $('.profile-character-info__lv')
+          .text()
+          .replace('Lv.', '');
+        // 템렙
+        $('.level-info2__item > span').each(function (index, item) {
+          if (index === 1)
+            character.itemLevel = $(this).text().replace('Lv.', '');
+        });
+        // 기본스탯
+        character.stats.basic = this.basicStats($);
+        // 전투스탯
+        character.stats.battle = this.battleStats($);
+        // 성향
+        character.stats.virtues = this.virtues($);
+        // 각인
+        character.stats.engraving = this.engraving($);
+
+        // 보유 캐릭터 목록
+        let count = 0;
+        let temp = [];
+        $('ul.profile-character-list__char > li > span > button').each(
+          function (index, item) {
+            temp[count] = $(this)
+              .attr('onclick')
+              ?.split('/')[3]
+              .replace("'", '');
+            count = count + 1;
+          },
+        );
+        character.ownUserName = temp;
+        character.class = $(
+          '#lostark-wrapper > div > main > div > div.profile-character-info > img[src]',
+        ).attr().alt;
+        character.guildName = $(
+          '#lostark-wrapper > div > main > div > div.profile-ingame > div.profile-info > div.game-info > div.game-info__guild > span:nth-child(2)',
+        ).text();
+        character.serverName = $(
+          '#lostark-wrapper > div > main > div > div.profile-character-info > span.profile-character-info__server',
+        )
+          .text()
+          .replace('@', '');
+        character.imageUri = $(
+          '#profile-equipment > div.profile-equipment__character > img',
+        ).attr().src;
 
         const script = $('#profile-ability > script')
           .text()
@@ -104,6 +149,98 @@ export class CharacterService {
         if (!scriptJson) {
           throw new ApolloError('캐릭터 정보가 없습니다.');
         }
+
+        character.skillList = Object.entries(scriptJson.Skill).map(
+          (obj, index) => {
+            const data: string = JSON.stringify(obj[1]).replace(reg, '  ');
+
+            const nameRegex = /"type":"NameTagBox","value":"([^"]+)"/;
+            const imageUriRegex = /"iconPath":"(.*?)"/;
+            const levelRegex =
+              /"type":"SingleTextBox","value":"스킬 레벨 (\d+)/;
+            const weakPointRegex = /부위 파괴 : 레벨 (\d+)/;
+            const staggerValueRegex = /무력화 : (\S+)/;
+            const attackTypeRegex = /공격 타입 : (\S+)/;
+            const counterYnRegex = /카운터 : (\S+)/;
+            const superArmorRegex = /슈퍼아머 : ([^"]+)/;
+
+            const nameMatch = nameRegex.exec(data);
+            const imageUriMatch = imageUriRegex.exec(data);
+            const levelMatch = levelRegex.exec(data);
+            const weakPointMatch = weakPointRegex.exec(data);
+            const staggerValueMatch = staggerValueRegex.exec(data);
+            const attackTypeMatch = attackTypeRegex.exec(data);
+            const counterYnMatch = counterYnRegex.exec(data);
+            const superArmorMatch = superArmorRegex.exec(data);
+
+            const skill: ISkill = {
+              name: nameMatch ? nameMatch[1].trim() : '',
+              class: character.class,
+              imageUri: imageUriMatch ? imageUriMatch[1].trim() : '',
+              level: levelMatch ? parseInt(levelMatch[1].trim()) : 0,
+              counterYn: counterYnMatch ? 'Y' : 'N',
+              superArmor: superArmorMatch
+                ? superArmorRegex
+                    .exec(data)[1]
+                    .replace('카운터 : 가능', '')
+                    .trim()
+                : '',
+              weakPoint: weakPointMatch ? weakPointMatch[1].trim() : '',
+              staggerValue: staggerValueMatch
+                ? staggerValueMatch[1].trim()
+                : '',
+              attackType: attackTypeMatch ? attackTypeMatch[1].trim() : '',
+            };
+            return skill;
+          },
+        );
+
+        const tripodList = $(
+          '#profile-skill > div.profile-skill-battle > div.profile-skill__list > div',
+        )
+          .children()
+          .toArray()
+          .map((obj: any, index: number) => {
+            const data: any = JSON.parse(
+              JSON.stringify(obj.attribs)
+                .replace('data-classno', 'data_classno')
+                .replace('data-classname', 'data_classname')
+                .replace('data-skill', 'data_skill')
+                .replace(/<[^>]*>?/g, ''),
+            );
+
+            const skillData = JSON.parse(data.data_skill);
+            let rune;
+            if (skillData.rune) {
+              rune = {
+                name: /"type":"NameTagBox","value":"([^"]+)"/.exec(
+                  skillData.rune.tooltip,
+                )[1],
+                imageUri: skillData.rune.icon,
+                grade: skillData.rune.grade,
+              };
+            }
+
+            let tripods = [];
+            if (skillData.tripodList) {
+              skillData.tripodList.map((x) => {
+                tripods.push({
+                  name: x.name,
+                  imageUri: x.slotIcon,
+                  tier: x.level,
+                  slot: x.slot,
+                  level: x.featureLevel,
+                });
+              });
+            }
+
+            const skillInfo: any = {
+              name: skillData.name,
+              tripods: tripods,
+              rune: rune,
+            };
+            return skillInfo;
+          });
 
         character.gemList = Object.entries(scriptJson.Equip)
           .filter((obj) => obj[0].match('Gem'))
@@ -121,7 +258,7 @@ export class CharacterService {
             const levelMatch = levelRegex.exec(data);
             const imageMatch = imageUriRegex.exec(data);
 
-            let gem: IGem = {
+            const gem: IGem = {
               name: nameMatch ? nameMatch[1] : '',
               imageUri: imageMatch ? imageMatch[1] : '',
               slot: index,
@@ -316,57 +453,10 @@ export class CharacterService {
           },
         );
 
-        // 레벨
-        character.level = $('.profile-character-info__lv')
-          .text()
-          .replace('Lv.', '');
-        // 템렙
-        $('.level-info2__item > span').each(function (index, item) {
-          if (index === 1)
-            character.itemLevel = $(this).text().replace('Lv.', '');
-        });
-
-        // 기본스탯
-        character.stats.basic = this.basicStats($);
-        // 전투스탯
-        character.stats.battle = this.battleStats($);
-        // 성향
-        character.stats.virtues = this.virtues($);
-        // 각인
-        character.stats.engraving = this.engraving($);
-
-        // 보유 캐릭터 목록
-        let count = 0;
-        let temp = [];
-        $('ul.profile-character-list__char > li > span > button').each(
-          function (index, item) {
-            temp[count] = $(this)
-              .attr('onclick')
-              ?.split('/')[3]
-              .replace("'", '');
-            count = count + 1;
-          },
-        );
-        character.ownUserName = temp;
-        character.class = $(
-          '#lostark-wrapper > div > main > div > div.profile-character-info > img[src]',
-        ).attr().alt;
-        character.guildName = $(
-          '#lostark-wrapper > div > main > div > div.profile-ingame > div.profile-info > div.game-info > div.game-info__guild > span:nth-child(2)',
-        ).text();
-        character.serverName = $(
-          '#lostark-wrapper > div > main > div > div.profile-character-info > span.profile-character-info__server',
-        )
-          .text()
-          .replace('@', '');
-        character.imageUri = $(
-          '#profile-equipment > div.profile-equipment__character > img',
-        ).attr().src;
-
         return character;
       });
 
-    // 1. 캐릭터 기본 정보
+    //1. 캐릭터 기본 정보
     const character = await this.prisma.character.upsert({
       where: {
         name: name,
@@ -397,7 +487,14 @@ export class CharacterService {
       },
     });
 
+    // 2. 스킬
+
     // 2. 보석
+    await this.prisma.character_gem.deleteMany({
+      where: {
+        character_id: character.id,
+      },
+    });
     dt.gemList.map(async (x) => {
       const gem = await this.prisma.item.upsert({
         where: {
@@ -413,25 +510,11 @@ export class CharacterService {
           tier: x.tier,
         },
       });
-      await this.prisma.character_gem.upsert({
-        where: {
-          character_id_slot: {
-            character_id: character.id,
-            slot: x.slot,
-          },
-        },
-        create: {
+      await this.prisma.character_gem.create({
+        data: {
           character_id: character.id,
           item_id: gem.id,
           slot: x.slot,
-          level: x.level,
-          skill: x.skill,
-          rate: x.rate,
-          effect_type: x.effectType,
-          direction: x.direction,
-        },
-        update: {
-          item_id: gem.id,
           level: x.level,
           skill: x.skill,
           rate: x.rate,
@@ -442,6 +525,11 @@ export class CharacterService {
     });
 
     // 3. 장비
+    await this.prisma.character_gear.deleteMany({
+      where: {
+        character_id: character.id,
+      },
+    });
     dt.gearList.map(async (x) => {
       const gear = await this.prisma.item.upsert({
         where: {
@@ -460,24 +548,11 @@ export class CharacterService {
         },
       });
 
-      await this.prisma.character_gear.upsert({
-        where: {
-          character_id_slot: {
-            character_id: character.id,
-            slot: x.slot,
-          },
-        },
-        create: {
+      await this.prisma.character_gear.create({
+        data: {
           item_id: gear.id,
           character_id: character.id,
           slot: x.slot,
-          honing: x.honing,
-          quality: x.quality,
-          base_effect: JSON.stringify(x.baseEffect),
-          additional_effect: JSON.stringify(x.additionalEffect),
-        },
-        update: {
-          item_id: gear.id,
           honing: x.honing,
           quality: x.quality,
           base_effect: JSON.stringify(x.baseEffect),
@@ -487,6 +562,11 @@ export class CharacterService {
     });
 
     // 4.악세사리
+    await this.prisma.character_accessory.deleteMany({
+      where: {
+        character_id: character.id,
+      },
+    });
     dt.accessoryList.map(async (x) => {
       const accessory = await this.prisma.item.upsert({
         where: {
@@ -503,25 +583,11 @@ export class CharacterService {
         },
       });
 
-      await this.prisma.character_accessory.upsert({
-        where: {
-          character_id_slot: {
-            character_id: character.id,
-            slot: x.slot,
-          },
-        },
-        create: {
+      await this.prisma.character_accessory.create({
+        data: {
           item_id: accessory.id,
           character_id: character.id,
           slot: x.slot,
-          quality: x.quality,
-          base_effect: JSON.stringify(x.baseEffect),
-          additional_effect: JSON.stringify(x.additionalEffect),
-          engraving: JSON.stringify(x.engraving),
-          bracelet_effect: JSON.stringify(x.braceletEffect),
-        },
-        update: {
-          item_id: accessory.id,
           quality: x.quality,
           base_effect: JSON.stringify(x.baseEffect),
           additional_effect: JSON.stringify(x.additionalEffect),
@@ -532,6 +598,11 @@ export class CharacterService {
     });
 
     // 5.각인
+    await this.prisma.character_engraving.deleteMany({
+      where: {
+        character_id: character.id,
+      },
+    });
     dt.stats.engraving.map(async (x, index) => {
       const engraving = await this.prisma.engraving.upsert({
         where: {
@@ -544,23 +615,12 @@ export class CharacterService {
         },
         update: {},
       });
-
-      await this.prisma.character_engraving.upsert({
-        where: {
-          character_id_slot: {
-            character_id: character.id,
-            slot: index,
-          },
-        },
-        create: {
+      await this.prisma.character_engraving.create({
+        data: {
           character_id: character.id,
           engraving_id: engraving.id,
           level: x.level,
           slot: index,
-        },
-        update: {
-          engraving_id: engraving.id,
-          level: x.level,
         },
       });
     });
@@ -605,7 +665,6 @@ export class CharacterService {
       ),
     };
   };
-
   battleStats = ($) => {
     return {
       critical: parseInt(
@@ -664,7 +723,6 @@ export class CharacterService {
       kindness: parseInt(match[4]),
     };
   };
-
   engraving = ($) => {
     const data = $(
       '#profile-ability > div.profile-ability-engrave > div > div.swiper-wrapper > ul > li > span',

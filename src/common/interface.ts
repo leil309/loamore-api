@@ -51,6 +51,26 @@ interface IEngraving {
   info: string;
 }
 
+interface ISkill {
+  name: string;
+  class: string;
+  imageUri: string;
+  level: number;
+  counterYn: string; //ICounterYn;
+  superArmor: string;
+  weakPoint: string;
+  staggerValue: string;
+  attackType: string;
+}
+
+interface ITripod {
+  name: string;
+  imageUri: string;
+  level: number;
+  effect: string;
+  tier: number;
+}
+
 interface ICharacter {
   class: string;
   userName: string;
@@ -84,6 +104,8 @@ interface ICharacter {
   gemList: Array<IGem>;
   gearList: Array<IGear>;
   accessoryList: Array<IAccessory>;
+  skillList: Array<ISkill>;
+  tripodList: Array<ITripod>;
   avatarList: Array<any>;
   cardList: Array<any>;
   elixir: Array<any>;
