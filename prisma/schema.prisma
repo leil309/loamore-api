@@ -21,28 +21,28 @@ datasource db {
 }
 
 model character {
-  id             BigInt   @id @default(autoincrement())
-  name           String   @unique(map: "UNIQUE") @db.VarChar(50)
-  class          String   @db.VarChar(50)
-  level          Int      @db.TinyInt
-  item_level     Float    @db.Float
-  guild_name     String?  @db.VarChar(50)
-  server_name    String   @db.VarChar(50)
-  image_uri      String   @db.VarChar(512)
-  attack_power   Int
-  max_health     Int
-  critical       Int      @db.SmallInt
-  specialization Int      @db.SmallInt
-  domination     Int      @db.SmallInt
-  swiftness      Int      @db.SmallInt
-  endurance      Int      @db.SmallInt
-  expertise      Int      @db.SmallInt
-  wisdom         Int      @db.SmallInt
-  courage        Int      @db.SmallInt
-  charisma       Int      @db.SmallInt
-  kindness       Int      @db.SmallInt
-  ins_date       DateTime @default(now()) @db.DateTime(0)
-  upd_date       DateTime @default(now()) @db.DateTime(0)
+  id                  BigInt                @id @default(autoincrement())
+  name                String                @unique(map: "UNIQUE") @db.VarChar(50)
+  class               String                @db.VarChar(50)
+  level               Int                   @db.TinyInt
+  item_level          Float                 @db.Float
+  guild_name          String?               @db.VarChar(50)
+  server_name         String                @db.VarChar(50)
+  image_uri           String                @db.VarChar(512)
+  attack_power        Int
+  max_health          Int
+  critical            Int                   @db.SmallInt
+  specialization      Int                   @db.SmallInt
+  domination          Int                   @db.SmallInt
+  swiftness           Int                   @db.SmallInt
+  endurance           Int                   @db.SmallInt
+  expertise           Int                   @db.SmallInt
+  wisdom              Int                   @db.SmallInt
+  courage             Int                   @db.SmallInt
+  charisma            Int                   @db.SmallInt
+  kindness            Int                   @db.SmallInt
+  ins_date            DateTime              @default(now()) @db.DateTime(0)
+  upd_date            DateTime              @default(now()) @db.DateTime(0)
   character_accessory character_accessory[]
   character_gear      character_gear[]
   character_gem       character_gem[]
@@ -51,71 +51,71 @@ model character {
 }
 
 model character_accessory {
-  id                BigInt  @id @default(autoincrement())
+  id                BigInt    @id @default(autoincrement())
   character_id      BigInt
   character         character @relation(fields: [character_id], references: [id])
   item_id           BigInt
   item              item      @relation(fields: [item_id], references: [id])
-  slot              Int     @db.TinyInt
-  quality           Int?    @db.TinyInt
-  base_effect       String? @db.VarChar(100)
-  additional_effect String? @db.VarChar(100)
-  bracelet_effect   String? @db.VarChar(300)
-  engraving         String? @db.VarChar(200)
+  slot              Int       @db.TinyInt
+  quality           Int?      @db.TinyInt
+  base_effect       String?   @db.VarChar(100)
+  additional_effect String?   @db.VarChar(100)
+  bracelet_effect   String?   @db.VarChar(300)
+  engraving         String?   @db.VarChar(200)
 
   @@unique([character_id, slot], map: "SUPER")
 }
 
 model character_gear {
-  id                BigInt  @id @default(autoincrement())
+  id                BigInt    @id @default(autoincrement())
   character_id      BigInt
   character         character @relation(fields: [character_id], references: [id])
   item_id           BigInt
   item              item      @relation(fields: [item_id], references: [id])
-  slot              Int     @db.TinyInt
-  honing            Int     @db.TinyInt
-  quality           Int     @db.TinyInt
-  base_effect       String? @db.VarChar(150)
-  additional_effect String? @db.VarChar(150)
+  slot              Int       @db.TinyInt
+  honing            Int       @db.TinyInt
+  quality           Int       @db.TinyInt
+  base_effect       String?   @db.VarChar(150)
+  additional_effect String?   @db.VarChar(150)
 
   @@unique([character_id, slot], map: "SUPER")
 }
 
 model character_gem {
-  id           BigInt @id @default(autoincrement())
+  id           BigInt    @id @default(autoincrement())
   character_id BigInt
   character    character @relation(fields: [character_id], references: [id])
   item_id      BigInt
   item         item      @relation(fields: [item_id], references: [id])
-  slot         Int    @db.TinyInt
-  level        Int    @db.TinyInt
-  skill        String @db.VarChar(100)
-  rate         Int    @db.TinyInt
-  effect_type  String @db.VarChar(20)
-  direction    String @db.VarChar(10)
+  slot         Int       @db.TinyInt
+  level        Int       @db.TinyInt
+  skill        String    @db.VarChar(100)
+  rate         Int       @db.TinyInt
+  effect_type  String    @db.VarChar(20)
+  direction    String    @db.VarChar(10)
 
   @@unique([character_id, slot], map: "SUPER")
 }
 
 model character_engraving {
-  id           BigInt @id @default(autoincrement())
+  id           BigInt    @id @default(autoincrement())
   character_id BigInt
   character    character @relation(fields: [character_id], references: [id])
   engraving_id BigInt
   engraving    engraving @relation(fields: [engraving_id], references: [id])
-  slot         Int    @db.TinyInt
-  level        Int    @db.TinyInt
+  slot         Int       @db.TinyInt
+  level        Int       @db.TinyInt
 
   @@unique([character_id, slot], map: "SUPER")
 }
 
 model item {
-  id        BigInt  @id @default(autoincrement())
-  name      String  @unique(map: "UNIQUE") @db.VarChar(512)
-  image_uri String  @db.VarChar(512)
-  set_name  String? @db.VarChar(20)
-  grade     Int?    @db.TinyInt
-  tier      Int?    @db.TinyInt
+  id                  BigInt                @id @default(autoincrement())
+  name                String                @unique(map: "UNIQUE") @db.VarChar(512)
+  image_uri           String                @db.VarChar(512)
+  set_name            String?               @db.VarChar(20)
+  grade               Int?                  @db.TinyInt
+  tier                Int?                  @db.TinyInt
   character_accessory character_accessory[]
   character_gear      character_gear[]
   character_gem       character_gem[]
@@ -123,11 +123,11 @@ model item {
 }
 
 model engraving {
-  id        BigInt   @id @default(autoincrement())
-  name      String   @unique(map: "ENGRAVING_NAME") @db.VarChar(50)
-  class_yn  class_yn @default(N)
-  image_uri String   @db.VarChar(512)
-  info      String   @db.VarChar(2000)
+  id                  BigInt                @id @default(autoincrement())
+  name                String                @unique(map: "ENGRAVING_NAME") @db.VarChar(50)
+  class_yn            class_yn              @default(N)
+  image_uri           String                @db.VarChar(512)
+  info                String                @db.VarChar(2000)
   character_engraving character_engraving[]
 }
 
@@ -155,39 +155,43 @@ model user {
 }
 
 model character_skill {
-  id            BigInt                     @id
-  character_id  BigInt
-  character     character @relation(fields: [character_id], references: [id])
-  skill_id      BigInt
-  skill         skill @relation(fields: [skill_id], references: [id])
-  rune_id       BigInt?
-  rune          item? @relation(fields: [rune_id], references: [id])
-  level         Int?                       @default(1) @db.TinyInt
-  counter_yn    character_skill_counter_yn @default(N)
-  super_armor   String?                    @db.VarChar(40)
-  weak_point    Int?                       @db.TinyInt
-  stagger_value String?                    @db.VarChar(5)
-  attack_type   String?                    @db.VarChar(10)
+  id                     BigInt                     @id @default(autoincrement())
+  character_id           BigInt
+  character              character                  @relation(fields: [character_id], references: [id])
+  skill_id               BigInt
+  skill                  skill                      @relation(fields: [skill_id], references: [id])
+  rune_id                BigInt?
+  rune                   item?                      @relation(fields: [rune_id], references: [id])
+  level                  Int?                       @default(1) @db.TinyInt
+  counter_yn             character_skill_counter_yn @default(N)
+  super_armor            String?                    @db.VarChar(40)
+  weak_point             Int?                       @db.TinyInt
+  stagger_value          String?                    @db.VarChar(5)
+  attack_type            String?                    @db.VarChar(10)
   character_skill_tripod character_skill_tripod[]
+
+  @@unique([character_id, skill_id], map: "SUPER")
 }
 
 model character_skill_tripod {
-  id                 BigInt @id
+  id                 BigInt          @id @default(autoincrement())
   character_skill_id BigInt
   character_skill    character_skill @relation(fields: [character_skill_id], references: [id])
   tripod_id          BigInt
-  tripod             tripod @relation(fields: [tripod_id], references: [id])
-  level              Int?   @default(1) @db.TinyInt
-  tier               Int    @default(1) @db.TinyInt
+  tripod             tripod          @relation(fields: [tripod_id], references: [id])
+  level              Int?            @default(1) @db.TinyInt
+  selected_yn        selected_yn     @default(N)
+
+  @@unique([character_skill_id, tripod_id], map: "SUPER")
 }
 
 model skill {
-  id        BigInt @id @default(autoincrement())
-  name      String @db.VarChar(50)
-  image_uri String @db.VarChar(512)
-  class     String @db.VarChar(50)
-  character_skill       character_skill[]
-  tripod                tripod[]
+  id              BigInt            @id @default(autoincrement())
+  name            String            @db.VarChar(50)
+  image_uri       String            @db.VarChar(512)
+  class           String            @db.VarChar(50)
+  character_skill character_skill[]
+  tripod          tripod[]
 
   @@unique([name, class], map: "SUPER")
 }
@@ -202,10 +206,16 @@ model tripod {
   slot      Int    @db.TinyInt
 
   character_skill_tripod character_skill_tripod[]
+
   @@unique([name, skill_id], map: "SUPER")
 }
 
 enum class_yn {
+  Y
+  N
+}
+
+enum selected_yn {
   Y
   N
 }

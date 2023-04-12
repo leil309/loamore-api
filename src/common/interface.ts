@@ -1,4 +1,4 @@
-interface IScript {
+export interface IScript {
   Card: any;
   CardSet: any;
   Engrave: any;
@@ -7,7 +7,7 @@ interface IScript {
   Skill: any;
 }
 
-interface IGem {
+export interface IGem {
   name: string;
   imageUri: string;
   slot: number;
@@ -19,7 +19,7 @@ interface IGem {
   effectType: string;
   direction: string;
 }
-interface IGear {
+export interface IGear {
   name: string;
   honing: number;
   imageUri: string;
@@ -33,7 +33,7 @@ interface IGear {
   additionalEffect: Array<string>;
 }
 
-interface IAccessory {
+export interface IAccessory {
   name: string;
   imageUri: string;
   slot: number;
@@ -44,42 +44,53 @@ interface IAccessory {
   braceletEffect: Array<string>;
   engraving: Array<any>;
 }
-interface IEngraving {
+export interface IEngraving {
   name: string;
   classYn: 'Y' | 'N';
   imageUri: string;
   info: string;
 }
 
-interface ISkill {
+export enum CounterYn {
+  Y = 'Y',
+  N = 'N',
+}
+export enum SelectedYn {
+  Y = 'Y',
+  N = 'N',
+}
+
+export interface ISkill {
   name: string;
   class: string;
   imageUri: string;
   level: number;
-  counterYn: string; //ICounterYn;
+  counterYn: CounterYn; //ICounterYn;
   superArmor: string;
-  weakPoint: string;
+  weakPoint: number;
   staggerValue: string;
   attackType: string;
   tripods: Array<ITripod> | null | undefined;
   rune: any | null | undefined;
 }
-interface ISkillAdd {
+
+export interface ISkillAdd {
   name: string;
   class: string;
   tripods: Array<ITripod>;
   rune: any;
 }
 
-interface ITripod {
+export interface ITripod {
   name: string;
   imageUri: string;
   level: number;
   tier: number;
   slot: number;
+  selected: SelectedYn;
 }
 
-interface ICharacter {
+export interface ICharacter {
   class: string;
   userName: string;
   level: any;

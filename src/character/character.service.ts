@@ -5,6 +5,18 @@ import { ApolloError } from 'apollo-server-express';
 import * as https from 'https';
 import axios from 'axios';
 import * as _ from 'lodash';
+import {
+  CounterYn,
+  IAccessory,
+  ICharacter,
+  IGear,
+  IGem,
+  IScript,
+  ISkill,
+  ISkillAdd,
+  ITripod,
+  SelectedYn,
+} from '../common/interface';
 
 @Injectable()
 export class CharacterService {
@@ -151,54 +163,49 @@ export class CharacterService {
           throw new ApolloError('캐릭터 정보가 없습니다.');
         }
 
-        character.skillList = Object.entries(scriptJson.Skill).map(
-          (obj, index) => {
-            const data: string = JSON.stringify(obj[1]).replace(reg, '  ');
+        const skillList = Object.entries(scriptJson.Skill).map((obj, index) => {
+          const data: string = JSON.stringify(obj[1]).replace(reg, '  ');
 
-            const nameRegex = /"type":"NameTagBox","value":"([^"]+)"/;
-            const imageUriRegex = /"iconPath":"(.*?)"/;
-            const levelRegex =
-              /"type":"SingleTextBox","value":"스킬 레벨 (\d+)/;
-            const weakPointRegex = /부위 파괴 : 레벨 (\d+)/;
-            const staggerValueRegex = /무력화 : (\S+)/;
-            const attackTypeRegex = /공격 타입 : (\S+)/;
-            const counterYnRegex = /카운터 : (\S+)/;
-            const superArmorRegex = /슈퍼아머 : ([^"]+)/;
+          const nameRegex = /"type":"NameTagBox","value":"([^"]+)"/;
+          const imageUriRegex = /"iconPath":"(.*?)"/;
+          const levelRegex = /"type":"SingleTextBox","value":"스킬 레벨 (\d+)/;
+          const weakPointRegex = /부위 파괴 : 레벨 (\d+)/;
+          const staggerValueRegex = /무력화 : (\S+)/;
+          const attackTypeRegex = /공격 타입 : (\S+)/;
+          const counterYnRegex = /카운터 : (\S+)/;
+          const superArmorRegex = /슈퍼아머 : ([^"]+)/;
 
-            const nameMatch = nameRegex.exec(data);
-            const imageUriMatch = imageUriRegex.exec(data);
-            const levelMatch = levelRegex.exec(data);
-            const weakPointMatch = weakPointRegex.exec(data);
-            const staggerValueMatch = staggerValueRegex.exec(data);
-            const attackTypeMatch = attackTypeRegex.exec(data);
-            const counterYnMatch = counterYnRegex.exec(data);
-            const superArmorMatch = superArmorRegex.exec(data);
+          const nameMatch = nameRegex.exec(data);
+          const imageUriMatch = imageUriRegex.exec(data);
+          const levelMatch = levelRegex.exec(data);
+          const weakPointMatch = weakPointRegex.exec(data);
+          const staggerValueMatch = staggerValueRegex.exec(data);
+          const attackTypeMatch = attackTypeRegex.exec(data);
+          const counterYnMatch = counterYnRegex.exec(data);
+          const superArmorMatch = superArmorRegex.exec(data);
 
-            const skill: ISkill = {
-              name: nameMatch ? nameMatch[1].trim() : '',
-              class: character.class,
-              imageUri: imageUriMatch ? imageUriMatch[1].trim() : '',
-              level: levelMatch ? parseInt(levelMatch[1].trim()) : 0,
-              counterYn: counterYnMatch ? 'Y' : 'N',
-              superArmor: superArmorMatch
-                ? superArmorRegex
-                    .exec(data)[1]
-                    .replace('카운터 : 가능', '')
-                    .trim()
-                : '',
-              weakPoint: weakPointMatch ? weakPointMatch[1].trim() : '',
-              staggerValue: staggerValueMatch
-                ? staggerValueMatch[1].trim()
-                : '',
-              attackType: attackTypeMatch ? attackTypeMatch[1].trim() : '',
-              tripods: null,
-              rune: null,
-            };
-            return skill;
-          },
-        );
+          const skill: ISkill = {
+            name: nameMatch ? nameMatch[1].trim() : '',
+            class: character.class,
+            imageUri: imageUriMatch ? imageUriMatch[1].trim() : '',
+            level: levelMatch ? parseInt(levelMatch[1].trim()) : 0,
+            counterYn: counterYnMatch ? CounterYn.Y : CounterYn.N,
+            superArmor: superArmorMatch
+              ? superArmorRegex
+                  .exec(data)[1]
+                  .replace('카운터 : 가능', '')
+                  .trim()
+              : '',
+            weakPoint: weakPointMatch ? parseInt(weakPointMatch[1].trim()) : 0,
+            staggerValue: staggerValueMatch ? staggerValueMatch[1].trim() : '',
+            attackType: attackTypeMatch ? attackTypeMatch[1].trim() : '',
+            tripods: null,
+            rune: null,
+          };
+          return skill;
+        });
 
-        character.skillAdditionalInfo = $(
+        const tripodList = $(
           '#profile-skill > div.profile-skill-battle > div.profile-skill__list > div',
         )
           .children()
@@ -233,6 +240,11 @@ export class CharacterService {
                   tier: x.level,
                   slot: x.slot,
                   level: x.featureLevel,
+                  selected:
+                    skillData.selectedTripodTier[x.level] &&
+                    skillData.selectedTripodTier[x.level] === x.slot
+                      ? SelectedYn.Y
+                      : SelectedYn.N,
                 });
               });
             }
@@ -245,6 +257,10 @@ export class CharacterService {
             };
             return skillInfo;
           });
+
+        character.skillList = _.values(
+          _.merge(_.keyBy(skillList, 'name'), _.keyBy(tripodList, 'name')),
+        );
 
         character.gemList = Object.entries(scriptJson.Equip)
           .filter((obj) => obj[0].match('Gem'))
@@ -677,8 +693,7 @@ export class CharacterService {
     });
 
     // 6.스킬
-    const skillList = _.merge(dt.skillList, dt.skillAdditionalInfo);
-    skillList.map(async (skillInfo) => {
+    dt.skillList.map(async (skillInfo) => {
       const skill = await this.prisma.skill.upsert({
         where: {
           name_class: {
@@ -695,8 +710,36 @@ export class CharacterService {
           image_uri: skillInfo.imageUri,
         },
       });
+
+      const characterSkill = await this.prisma.character_skill.upsert({
+        where: {
+          character_id_skill_id: {
+            character_id: character.id,
+            skill_id: skill.id,
+          },
+        },
+        create: {
+          character_id: character.id,
+          skill_id: skill.id,
+          level: skillInfo.level,
+          counter_yn: skillInfo.counterYn,
+          super_armor: skillInfo.superArmor,
+          weak_point: skillInfo.weakPoint,
+          stagger_value: skillInfo.staggerValue,
+          attack_type: skillInfo.attackType,
+        },
+        update: {
+          level: skillInfo.level,
+          counter_yn: skillInfo.counterYn,
+          super_armor: skillInfo.superArmor,
+          weak_point: skillInfo.weakPoint,
+          stagger_value: skillInfo.staggerValue,
+          attack_type: skillInfo.attackType,
+        },
+      });
+
       skillInfo.tripods.map(async (x) => {
-        await this.prisma.tripod.upsert({
+        const tripod = await this.prisma.tripod.upsert({
           where: {
             name_skill_id: {
               name: x.name,
@@ -715,6 +758,22 @@ export class CharacterService {
             tier: x.tier,
             slot: x.slot,
           },
+        });
+
+        await this.prisma.character_skill_tripod.upsert({
+          where: {
+            character_skill_id_tripod_id: {
+              character_skill_id: characterSkill.id,
+              tripod_id: tripod.id,
+            },
+          },
+          create: {
+            character_skill_id: characterSkill.id,
+            tripod_id: tripod.id,
+            level: x.level,
+            selected_yn: x.selected,
+          },
+          update: { level: x.level, selected_yn: x.selected },
         });
       });
     });
