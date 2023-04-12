@@ -38,11 +38,30 @@ export class CharacterService {
         character_gem: {
           include: {
             item: true,
+            skill: true,
           },
+          orderBy: [{ effect_type: 'desc' }],
         },
         character_engraving: {
           include: {
             engraving: true,
+          },
+        },
+        character_skill: {
+          include: {
+            skill: {
+              include: {
+                tripod: true,
+              },
+            },
+            character_skill_tripod: {
+              include: {
+                tripod: true,
+              },
+            },
+          },
+          orderBy: {
+            level: 'desc',
           },
         },
       },
@@ -507,15 +526,145 @@ export class CharacterService {
       },
     });
 
-    // 2. 스킬
+    // 2.스킬
+    const cs = await this.prisma.character_skill.findMany({
+      where: {
+        character_id: character.id,
+      },
+    });
 
-    // 2. 보석
+    if (cs) {
+      await this.prisma.character_skill.deleteMany({
+        where: {
+          character_id: character.id,
+        },
+      });
+      await this.prisma.character_skill_tripod.deleteMany({
+        where: {
+          character_skill_id: {
+            in: cs.map((x) => x.id),
+          },
+        },
+      });
+    }
+
+    dt.skillList.map(async (skillInfo) => {
+      const skill = await this.prisma.skill.upsert({
+        where: {
+          name_class: {
+            name: skillInfo.name,
+            class: skillInfo.class,
+          },
+        },
+        create: {
+          name: skillInfo.name,
+          class: skillInfo.class,
+          image_uri: skillInfo.imageUri,
+        },
+        update: {
+          image_uri: skillInfo.imageUri,
+        },
+      });
+
+      const characterSkill = await this.prisma.character_skill.upsert({
+        where: {
+          character_id_skill_id: {
+            character_id: character.id,
+            skill_id: skill.id,
+          },
+        },
+        create: {
+          character_id: character.id,
+          skill_id: skill.id,
+          level: skillInfo.level,
+          counter_yn: skillInfo.counterYn,
+          super_armor: skillInfo.superArmor,
+          weak_point: skillInfo.weakPoint,
+          stagger_value: skillInfo.staggerValue,
+          attack_type: skillInfo.attackType,
+        },
+        update: {
+          level: skillInfo.level,
+          counter_yn: skillInfo.counterYn,
+          super_armor: skillInfo.superArmor,
+          weak_point: skillInfo.weakPoint,
+          stagger_value: skillInfo.staggerValue,
+          attack_type: skillInfo.attackType,
+        },
+      });
+
+      skillInfo.tripods.map(async (x) => {
+        const tripod = await this.prisma.tripod.upsert({
+          where: {
+            name_skill_id: {
+              name: x.name,
+              skill_id: skill.id,
+            },
+          },
+          create: {
+            name: x.name,
+            skill_id: skill.id,
+            image_uri: x.imageUri,
+            tier: x.tier,
+            slot: x.slot,
+          },
+          update: {
+            image_uri: x.imageUri,
+            tier: x.tier,
+            slot: x.slot,
+          },
+        });
+
+        await this.prisma.character_skill_tripod.upsert({
+          where: {
+            character_skill_id_tripod_id: {
+              character_skill_id: characterSkill.id,
+              tripod_id: tripod.id,
+            },
+          },
+          create: {
+            character_skill_id: characterSkill.id,
+            tripod_id: tripod.id,
+            level: x.level,
+            selected_yn: x.selected,
+          },
+          update: { level: x.level, selected_yn: x.selected },
+        });
+      });
+    });
+
+    const skillList = await this.prisma.skill
+      .findMany({
+        where: {
+          name: {
+            in: dt.gemList.map((x) => x.skill),
+          },
+        },
+      })
+      .then((x) => {
+        return x.map((y) => {
+          return {
+            skillId: y.id,
+            skill: y.name,
+          };
+        });
+      });
+
+    const gemSkills = dt.gemList.map((x) => {
+      const skillId = skillList.find((y) => y.skill === x.skill).skillId;
+
+      return {
+        ...x,
+        skillId,
+      };
+    });
+
     await this.prisma.character_gem.deleteMany({
       where: {
         character_id: character.id,
       },
     });
-    dt.gemList.map(async (x) => {
+    gemSkills.map(async (x) => {
       const gem = await this.prisma.item.upsert({
         where: {
           name: x.name.trim(),
@@ -542,7 +691,7 @@ export class CharacterService {
           item_id: gem.id,
           slot: x.slot,
           level: x.level,
-          skill: x.skill,
+          skill_id: x.skillId,
           rate: x.rate,
           effect_type: x.effectType,
           direction: x.direction,
@@ -689,92 +838,6 @@ export class CharacterService {
           image_uri: x.imageUri,
           info: x.info,
         },
-      });
-    });
-
-    // 6.스킬
-    dt.skillList.map(async (skillInfo) => {
-      const skill = await this.prisma.skill.upsert({
-        where: {
-          name_class: {
-            name: skillInfo.name,
-            class: skillInfo.class,
-          },
-        },
-        create: {
-          name: skillInfo.name,
-          class: skillInfo.class,
-          image_uri: skillInfo.imageUri,
-        },
-        update: {
-          image_uri: skillInfo.imageUri,
-        },
-      });
-
-      const characterSkill = await this.prisma.character_skill.upsert({
-        where: {
-          character_id_skill_id: {
-            character_id: character.id,
-            skill_id: skill.id,
-          },
-        },
-        create: {
-          character_id: character.id,
-          skill_id: skill.id,
-          level: skillInfo.level,
-          counter_yn: skillInfo.counterYn,
-          super_armor: skillInfo.superArmor,
-          weak_point: skillInfo.weakPoint,
-          stagger_value: skillInfo.staggerValue,
-          attack_type: skillInfo.attackType,
-        },
-        update: {
-          level: skillInfo.level,
-          counter_yn: skillInfo.counterYn,
-          super_armor: skillInfo.superArmor,
-          weak_point: skillInfo.weakPoint,
-          stagger_value: skillInfo.staggerValue,
-          attack_type: skillInfo.attackType,
-        },
-      });
-
-      skillInfo.tripods.map(async (x) => {
-        const tripod = await this.prisma.tripod.upsert({
-          where: {
-            name_skill_id: {
-              name: x.name,
-              skill_id: skill.id,
-            },
-          },
-          create: {
-            name: x.name,
-            skill_id: skill.id,
-            image_uri: x.imageUri,
-            tier: x.tier,
-            slot: x.slot,
-          },
-          update: {
-            image_uri: x.imageUri,
-            tier: x.tier,
-            slot: x.slot,
-          },
-        });
-
-        await this.prisma.character_skill_tripod.upsert({
-          where: {
-            character_skill_id_tripod_id: {
-              character_skill_id: characterSkill.id,
-              tripod_id: tripod.id,
-            },
-          },
-          create: {
-            character_skill_id: characterSkill.id,
-            tripod_id: tripod.id,
-            level: x.level,
-            selected_yn: x.selected,
-          },
-          update: { level: x.level, selected_yn: x.selected },
-        });
       });
     });
 

@@ -87,9 +87,10 @@ model character_gem {
   character    character @relation(fields: [character_id], references: [id])
   item_id      BigInt
   item         item      @relation(fields: [item_id], references: [id])
+  skill_id     BigInt
+  skill        skill     @relation(fields: [skill_id], references: [id])
   slot         Int       @db.TinyInt
   level        Int       @db.TinyInt
-  skill        String    @db.VarChar(100)
   rate         Int       @db.TinyInt
   effect_type  String    @db.VarChar(20)
   direction    String    @db.VarChar(10)
@@ -192,6 +193,7 @@ model skill {
   class           String            @db.VarChar(50)
   character_skill character_skill[]
   tripod          tripod[]
+  character_gem   character_gem[]
 
   @@unique([name, class], map: "SUPER")
 }
