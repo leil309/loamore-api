@@ -62,6 +62,7 @@ model character_accessory {
   additional_effect String?   @db.VarChar(100)
   bracelet_effect   String?   @db.VarChar(300)
   engraving         String?   @db.VarChar(200)
+  use_yn            use_yn    @default(N)
 
   @@unique([character_id, slot], map: "SUPER")
 }
@@ -77,6 +78,7 @@ model character_gear {
   quality           Int       @db.TinyInt
   base_effect       String?   @db.VarChar(150)
   additional_effect String?   @db.VarChar(150)
+  use_yn            use_yn    @default(N)
 
   @@unique([character_id, slot], map: "SUPER")
 }
@@ -94,6 +96,7 @@ model character_gem {
   rate         Int       @db.TinyInt
   effect_type  String    @db.VarChar(20)
   direction    String    @db.VarChar(10)
+  use_yn       use_yn    @default(N)
 
   @@unique([character_id, slot], map: "SUPER")
 }
@@ -106,6 +109,7 @@ model character_engraving {
   engraving    engraving @relation(fields: [engraving_id], references: [id])
   slot         Int       @db.TinyInt
   level        Int       @db.TinyInt
+  use_yn       use_yn    @default(N)
 
   @@unique([character_id, slot], map: "SUPER")
 }
@@ -169,6 +173,8 @@ model character_skill {
   weak_point             Int?                       @db.TinyInt
   stagger_value          String?                    @db.VarChar(5)
   attack_type            String?                    @db.VarChar(10)
+  use_yn                 use_yn                     @default(N)
+
   character_skill_tripod character_skill_tripod[]
 
   @@unique([character_id, skill_id], map: "SUPER")
@@ -182,6 +188,7 @@ model character_skill_tripod {
   tripod             tripod          @relation(fields: [tripod_id], references: [id])
   level              Int?            @default(1) @db.TinyInt
   selected_yn        selected_yn     @default(N)
+  use_yn             use_yn          @default(N)
 
   @@unique([character_skill_id, tripod_id], map: "SUPER")
 }
@@ -213,6 +220,10 @@ model tripod {
 }
 
 enum class_yn {
+  Y
+  N
+}
+enum use_yn {
   Y
   N
 }

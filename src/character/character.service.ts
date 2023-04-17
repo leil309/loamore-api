@@ -17,6 +17,7 @@ import {
   ITripod,
   SelectedYn,
 } from '../common/interface';
+import { class_yn } from 'src/@generated/prisma/class-yn.enum';
 
 @Injectable()
 export class CharacterService {
@@ -26,16 +27,25 @@ export class CharacterService {
     return this.prisma.character.findFirst({
       include: {
         character_accessory: {
+          where: {
+            use_yn: 'Y',
+          },
           include: {
             item: true,
           },
         },
         character_gear: {
+          where: {
+            use_yn: 'Y',
+          },
           include: {
             item: true,
           },
         },
         character_gem: {
+          where: {
+            use_yn: 'Y',
+          },
           include: {
             item: true,
             skill: true,
@@ -43,11 +53,17 @@ export class CharacterService {
           orderBy: [{ effect_type: 'desc' }],
         },
         character_engraving: {
+          where: {
+            use_yn: 'Y',
+          },
           include: {
             engraving: true,
           },
         },
         character_skill: {
+          where: {
+            use_yn: 'Y',
+          },
           include: {
             skill: {
               include: {
@@ -55,6 +71,9 @@ export class CharacterService {
               },
             },
             character_skill_tripod: {
+              where: {
+                use_yn: 'Y',
+              },
               include: {
                 tripod: true,
               },
@@ -259,6 +278,7 @@ export class CharacterService {
                   tier: x.level,
                   slot: x.slot,
                   level: x.featureLevel,
+                  skillName: skillData.name,
                   selected:
                     skillData.selectedTripodTier[x.level] &&
                     skillData.selectedTripodTier[x.level] === x.slot
@@ -281,7 +301,7 @@ export class CharacterService {
           _.merge(_.keyBy(skillList, 'name'), _.keyBy(tripodList, 'name')),
         );
 
-        character.gemList = Object.entries(scriptJson.Equip)
+        const gemList = Object.entries(scriptJson.Equip)
           .filter((obj) => obj[0].match('Gem'))
           .map((obj: any, index: number) => {
             const regex =
@@ -315,6 +335,18 @@ export class CharacterService {
             };
             return gem;
           });
+
+        character.gemList = gemList.map((x) => {
+          const aa = scriptJson.GemSkillEffect.find(
+            (y) => y.SkillName === x.skill,
+          );
+          if (aa) {
+            return {
+              ...x,
+              SkillIcon: aa.SkillIcon,
+            };
+          }
+        });
 
         character.gearList = Object.entries(scriptJson.Equip)
           .filter((obj) => !obj[0].match('Gem'))
@@ -456,7 +488,7 @@ export class CharacterService {
             return accessory;
           });
 
-        character.engraving = Object.entries(scriptJson.Engrave).map(
+        const engravingInfo = Object.entries(scriptJson.Engrave).map(
           (obj, index) => {
             const data: string = JSON.stringify(obj[1]).replace(reg, '');
 
@@ -487,15 +519,34 @@ export class CharacterService {
                   : 'N'
                 : 'N',
               imageUri: imageMatch ? imageMatch[1] : '',
-              info: JSON.stringify(levelEffects.concat()),
+              info: levelEffects ? JSON.stringify(levelEffects.concat()) : '',
             };
           },
         );
 
+        character.engraving = _.values(
+          _.merge(
+            _.keyBy(character.stats.engraving, 'name'),
+            _.keyBy(engravingInfo, 'name'),
+          ),
+        );
+
         return character;
       });
+    // 1. 캐릭터 기본 정보
+    const c = await this.prisma.character.findFirst({
+      where: {
+        name: name,
+      },
+    });
 
-    //1. 캐릭터 기본 정보
+    if (c) {
+      const min = (new Date().getTime() - c.upd_date.getTime()) / 1000 / 60;
+      if (min < 1) {
+        return true;
+      }
+    }
+
     const character = await this.prisma.character.upsert({
       where: {
         name: name,
@@ -527,27 +578,49 @@ export class CharacterService {
     });
 
     // 2.스킬
+    await this.prisma.character_skill.updateMany({
+      where: {
+        character_id: character.id,
+      },
+      data: {
+        use_yn: 'N',
+      },
+    });
     const cs = await this.prisma.character_skill.findMany({
       where: {
         character_id: character.id,
       },
     });
-
-    if (cs) {
-      await this.prisma.character_skill.deleteMany({
-        where: {
-          character_id: character.id,
+    await this.prisma.character_skill_tripod.updateMany({
+      where: {
+        character_skill_id: {
+          in: cs.map((x) => x.id),
         },
-      });
-      await this.prisma.character_skill_tripod.deleteMany({
-        where: {
-          character_skill_id: {
-            in: cs.map((x) => x.id),
+      },
+      data: {
+        use_yn: 'N',
+      },
+    });
+    await this.prisma.$transaction(
+      dt.gemList.map((x) =>
+        this.prisma.skill.upsert({
+          where: {
+            name_class: {
+              name: x.skill,
+              class: character.class,
+            },
           },
-        },
-      });
-    }
-
+          create: {
+            name: x.skill,
+            class: x.class,
+            image_uri: x.SkillIcon,
+          },
+          update: {
+            image_uri: x.SkillIcon,
+          },
+        }),
+      ),
+    );
     dt.skillList.map(async (skillInfo) => {
       const skill = await this.prisma.skill.upsert({
         where: {
@@ -582,6 +655,7 @@ export class CharacterService {
           weak_point: skillInfo.weakPoint,
           stagger_value: skillInfo.staggerValue,
           attack_type: skillInfo.attackType,
+          use_yn: 'Y',
         },
         update: {
           level: skillInfo.level,
@@ -590,6 +664,7 @@ export class CharacterService {
           weak_point: skillInfo.weakPoint,
           stagger_value: skillInfo.staggerValue,
           attack_type: skillInfo.attackType,
+          use_yn: 'Y',
         },
       });
 
@@ -627,8 +702,13 @@ export class CharacterService {
             tripod_id: tripod.id,
             level: x.level,
             selected_yn: x.selected,
+            use_yn: 'Y',
           },
-          update: { level: x.level, selected_yn: x.selected },
+          update: {
+            level: x.level,
+            selected_yn: x.selected,
+            use_yn: 'Y',
+          },
         });
       });
     });
@@ -650,18 +730,23 @@ export class CharacterService {
         });
       });
 
+    // 3. 보석
     const gemSkills = dt.gemList.map((x) => {
-      const skillId = skillList.find((y) => y.skill === x.skill).skillId;
+      const skillId = skillList
+        ? skillList.find((y) => y.skill === x.skill).skillId
+        : 0;
 
       return {
         ...x,
         skillId,
       };
     });
-
-    await this.prisma.character_gem.deleteMany({
+    await this.prisma.character_gem.updateMany({
       where: {
         character_id: character.id,
+      },
+      data: {
+        use_yn: 'N',
       },
     });
     gemSkills.map(async (x) => {
@@ -695,15 +780,27 @@ export class CharacterService {
           rate: x.rate,
           effect_type: x.effectType,
           direction: x.direction,
+          use_yn: 'Y',
         },
-        update: {},
+        update: {
+          item_id: gem.id,
+          level: x.level,
+          skill_id: x.skillId,
+          rate: x.rate,
+          effect_type: x.effectType,
+          direction: x.direction,
+          use_yn: 'Y',
+        },
       });
     });
 
-    // 3. 장비
-    await this.prisma.character_gear.deleteMany({
+    // 4. 장비
+    await this.prisma.character_gear.updateMany({
       where: {
         character_id: character.id,
+      },
+      data: {
+        use_yn: 'N',
       },
     });
     dt.gearList.map(async (x) => {
@@ -739,15 +836,26 @@ export class CharacterService {
           quality: x.quality,
           base_effect: JSON.stringify(x.baseEffect),
           additional_effect: JSON.stringify(x.additionalEffect),
+          use_yn: 'Y',
         },
-        update: {},
+        update: {
+          item_id: gear.id,
+          honing: x.honing,
+          quality: x.quality,
+          base_effect: JSON.stringify(x.baseEffect),
+          additional_effect: JSON.stringify(x.additionalEffect),
+          use_yn: 'Y',
+        },
       });
     });
 
-    // 4.악세사리
-    await this.prisma.character_accessory.deleteMany({
+    // 5.악세사리
+    await this.prisma.character_accessory.updateMany({
       where: {
         character_id: character.id,
+      },
+      data: {
+        use_yn: 'N',
       },
     });
     dt.accessoryList.map(async (x) => {
@@ -782,28 +890,45 @@ export class CharacterService {
           additional_effect: JSON.stringify(x.additionalEffect),
           engraving: JSON.stringify(x.engraving),
           bracelet_effect: JSON.stringify(x.braceletEffect),
+          use_yn: 'Y',
         },
-        update: {},
+        update: {
+          item_id: accessory.id,
+          quality: x.quality,
+          base_effect: JSON.stringify(x.baseEffect),
+          additional_effect: JSON.stringify(x.additionalEffect),
+          engraving: JSON.stringify(x.engraving),
+          bracelet_effect: JSON.stringify(x.braceletEffect),
+          use_yn: 'Y',
+        },
       });
     });
 
-    // 5.각인
-    await this.prisma.character_engraving.deleteMany({
+    // 6.각인
+    await this.prisma.character_engraving.updateMany({
       where: {
         character_id: character.id,
       },
+      data: {
+        use_yn: 'N',
+      },
     });
-    dt.stats.engraving.map(async (x, index) => {
+    dt.engraving.map(async (x, index) => {
       const engraving = await this.prisma.engraving.upsert({
         where: {
           name: x.name,
         },
         create: {
           name: x.name,
-          image_uri: '',
-          info: '',
+          class_yn: x.classYn ? x.classYn : class_yn.N,
+          image_uri: x.imageUri ? x.imageUri : '',
+          info: x.info ? x.info : '',
         },
-        update: {},
+        update: {
+          class_yn: x.classYn ? x.classYn : class_yn.N,
+          image_uri: x.imageUri ? x.imageUri : '',
+          info: x.info ? x.info : '',
+        },
       });
       await this.prisma.character_engraving.upsert({
         where: {
@@ -817,30 +942,15 @@ export class CharacterService {
           engraving_id: engraving.id,
           level: x.level,
           slot: index,
-        },
-        update: {},
-      });
-    });
-
-    dt.engraving.map(async (x) => {
-      await this.prisma.engraving.upsert({
-        where: {
-          name: x.name,
-        },
-        create: {
-          name: x.name,
-          class_yn: x.classYn,
-          image_uri: x.imageUri,
-          info: x.info,
+          use_yn: 'Y',
         },
         update: {
-          class_yn: x.classYn,
-          image_uri: x.imageUri,
-          info: x.info,
+          engraving_id: engraving.id,
+          level: x.level,
+          use_yn: 'Y',
         },
       });
     });
-
     return true;
   }
 

@@ -13,11 +13,16 @@ export interface IGem {
   slot: number;
   level: number;
   tier: number;
-  skill: string;
   class: string;
+  skill: string;
   rate: number;
   effectType: string;
   direction: string;
+  EquipGemSlotIndex?: number | undefined | null;
+  SkillDesc?: string | undefined | null;
+  SkillIcon?: string | undefined | null;
+  SkillName?: string | undefined | null;
+  SkillSlotIndex?: number | undefined | null;
 }
 export interface IGear {
   name: string;
@@ -49,6 +54,7 @@ export interface IEngraving {
   classYn: 'Y' | 'N';
   imageUri: string;
   info: string;
+  level: number;
 }
 
 export enum CounterYn {
@@ -83,6 +89,7 @@ export interface ISkillAdd {
 
 export interface ITripod {
   name: string;
+  skillName: string;
   imageUri: string;
   level: number;
   tier: number;
