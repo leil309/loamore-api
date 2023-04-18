@@ -18,11 +18,66 @@ import {
   SelectedYn,
 } from '../common/interface';
 import { class_yn } from 'src/@generated/prisma/class-yn.enum';
+import { SortOrder } from 'src/@generated/prisma/sort-order.enum';
+import { CharacterRankOutput } from 'src/character/dto/character.output';
 
 @Injectable()
 export class CharacterService {
   constructor(private prisma: PrismaService) {}
 
+  async findCharacterRanking({ cursor, take }: any) {
+    const characterList = await this.prisma.character.findMany({
+      take,
+      skip: cursor ? 1 : 0,
+      ...(cursor && { cursor: { id: cursor } }),
+      include: {
+        character_gear: {
+          include: {
+            item: true,
+          },
+          where: { use_yn: 'Y' },
+        },
+        character_engraving: {
+          include: {
+            engraving: true,
+          },
+          where: { use_yn: 'Y' },
+        },
+      },
+      where: {
+        item_level: {
+          gte: 1340,
+        },
+      },
+      orderBy: [{ item_level: SortOrder.desc }],
+    });
+
+    const result: Array<CharacterRankOutput> = characterList.map(
+      (character) => {
+        const setList = character.character_gear
+          .filter((cg) => !!cg.item.set_name)
+          .map((cg) => cg.item.set_name);
+        const engravingList = character.character_engraving
+          .filter((ce) => ce.engraving.class_yn === class_yn.Y)
+          .map((ce) => ce.engraving.name);
+        const res: CharacterRankOutput = {
+          id: character.id,
+          name: character.name,
+          class: character.class,
+          itemLevel: character.item_level,
+          guildName: character.guild_name,
+          serverName: character.server_name,
+          imageUri: character.image_uri,
+          setItem: setList,
+          classEngraving: engravingList,
+          insDate: character.ins_date,
+          updDate: character.upd_date,
+        };
+        return res;
+      },
+    );
+    return result;
+  }
   async findCharacter(name: string) {
     return this.prisma.character.findFirst({
       include: {
@@ -914,6 +969,13 @@ export class CharacterService {
       },
     });
     dt.engraving.map(async (x, index) => {
+      let update = {
+        class_yn: x.classYn ? x.classYn : class_yn.N,
+      };
+      if (x.imageUri) {
+        update['image_uri'] = x.imageUri;
+        update['info'] = x.info;
+      }
       const engraving = await this.prisma.engraving.upsert({
         where: {
           name: x.name,
@@ -924,11 +986,7 @@ export class CharacterService {
           image_uri: x.imageUri ? x.imageUri : '',
           info: x.info ? x.info : '',
         },
-        update: {
-          class_yn: x.classYn ? x.classYn : class_yn.N,
-          image_uri: x.imageUri ? x.imageUri : '',
-          info: x.info ? x.info : '',
-        },
+        update: update,
       });
       await this.prisma.character_engraving.upsert({
         where: {
