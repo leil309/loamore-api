@@ -2,6 +2,7 @@ import { Resolver, Query, Args, Int, Mutation } from '@nestjs/graphql';
 import { CharacterService } from 'src/character/character.service';
 import { character } from 'src/@generated/character/character.model';
 import { CharacterRankOutput } from 'src/character/dto/character.output';
+import { FindCursorCharacterRankingArgs } from './dto/characterRanking.args';
 
 @Resolver()
 export class CharacterResolver {
@@ -17,11 +18,8 @@ export class CharacterResolver {
   @Query(() => [CharacterRankOutput], {
     description: 'ranking 조회',
   })
-  findCharacterRanking(
-    @Args('take', { type: () => Number }) take: number,
-    @Args('cursor', { type: () => Number }) cursor: number,
-  ) {
-    return this.characterService.findCharacterRanking({ take, cursor });
+  findCharacterRanking(@Args() args: FindCursorCharacterRankingArgs) {
+    return this.characterService.findCharacterRanking(args);
   }
 
   @Mutation(() => Boolean, {

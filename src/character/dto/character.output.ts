@@ -9,7 +9,7 @@ export class CharacterRankOutput {
   name!: string;
 
   @Field(() => String, { nullable: false })
-  class!: string;
+  className!: string;
 
   @Field(() => Float, { nullable: false })
   itemLevel!: number;

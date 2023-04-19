@@ -20,12 +20,13 @@ import {
 import { class_yn } from 'src/@generated/prisma/class-yn.enum';
 import { SortOrder } from 'src/@generated/prisma/sort-order.enum';
 import { CharacterRankOutput } from 'src/character/dto/character.output';
+import { FindCursorCharacterRankingArgs } from './dto/characterRanking.args';
 
 @Injectable()
 export class CharacterService {
   constructor(private prisma: PrismaService) {}
 
-  async findCharacterRanking({ cursor, take }: any) {
+  async findCharacterRanking({ cursor, take }: FindCursorCharacterRankingArgs) {
     const characterList = await this.prisma.character.findMany({
       take,
       skip: cursor ? 1 : 0,
@@ -54,16 +55,19 @@ export class CharacterService {
 
     const result: Array<CharacterRankOutput> = characterList.map(
       (character) => {
-        const setList = character.character_gear
-          .filter((cg) => !!cg.item.set_name)
-          .map((cg) => cg.item.set_name);
+        const setList = Object.entries(
+          character.character_gear
+            .filter((cg) => !!cg.item.set_name)
+            .map((cg) => cg.item.set_name)
+            .reduce((ac, v) => ({ ...ac, [v]: (ac[v] || 0) + 1 }), {}),
+        ).map((x) => x.toLocaleString().replace(',', ' '));
         const engravingList = character.character_engraving
           .filter((ce) => ce.engraving.class_yn === class_yn.Y)
           .map((ce) => ce.engraving.name);
         const res: CharacterRankOutput = {
           id: character.id,
           name: character.name,
-          class: character.class,
+          className: character.class,
           itemLevel: character.item_level,
           guildName: character.guild_name,
           serverName: character.server_name,
