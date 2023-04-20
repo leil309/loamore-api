@@ -136,21 +136,6 @@ model engraving {
   character_engraving character_engraving[]
 }
 
-model ranking {
-  id              BigInt   @id @default(autoincrement())
-  character_id    BigInt
-  rank            BigInt
-  name            String   @db.VarChar(50)
-  server_name     String   @db.VarChar(50)
-  image_uri       String   @db.VarChar(512)
-  weapon          String   @db.VarChar(50)
-  class_engraving String   @db.VarChar(50)
-  gear_set        String   @db.VarChar(50)
-  main_stats      String   @db.VarChar(50)
-  ins_date        DateTime @db.DateTime(0)
-  upd_date        DateTime @db.DateTime(0)
-}
-
 model user {
   id            BigInt   @id @default(autoincrement())
   character_id  BigInt

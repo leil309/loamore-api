@@ -26,7 +26,11 @@ import { FindCursorCharacterRankingArgs } from './dto/characterRanking.args';
 export class CharacterService {
   constructor(private prisma: PrismaService) {}
 
-  async findCharacterRanking({ cursor, take }: FindCursorCharacterRankingArgs) {
+  async findCharacterRanking({
+    cursor,
+    take,
+    className,
+  }: FindCursorCharacterRankingArgs) {
     const characterList = await this.prisma.character.findMany({
       take,
       skip: cursor ? 1 : 0,
@@ -49,8 +53,11 @@ export class CharacterService {
         item_level: {
           gte: 1340,
         },
+        class: {
+          equals: className,
+        },
       },
-      orderBy: [{ item_level: SortOrder.desc }],
+      orderBy: [{ item_level: SortOrder.desc }, { id: SortOrder.asc }],
     });
 
     const result: Array<CharacterRankOutput> = characterList.map(
@@ -570,16 +577,17 @@ export class CharacterService {
               levelEffects.shift();
             }
 
-            return {
+            let res = {
               name: name,
-              classYn: isClassMatch
-                ? isClassMatch[1] === '직업'
-                  ? 'Y'
-                  : 'N'
-                : 'N',
               imageUri: imageMatch ? imageMatch[1] : '',
               info: levelEffects ? JSON.stringify(levelEffects.concat()) : '',
             };
+
+            if (isClassMatch) {
+              res['classYn'] = isClassMatch[1] === '직업' ? 'Y' : 'N';
+            }
+
+            return res;
           },
         );
 
