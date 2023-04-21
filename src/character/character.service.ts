@@ -157,11 +157,18 @@ export class CharacterService {
   }
 
   async upsert(name: string) {
-    const isCharacter = await this.prisma.character.count({
+    const c = await this.prisma.character.findFirst({
       where: {
         name: name,
       },
     });
+
+    if (c) {
+      const min = (new Date().getTime() - c.upd_date.getTime()) / 1000 / 60;
+      if (min < 1) {
+        return true;
+      }
+    }
 
     const agent = new https.Agent({
       rejectUnauthorized: false,
@@ -601,19 +608,6 @@ export class CharacterService {
         return character;
       });
     // 1. 캐릭터 기본 정보
-    const c = await this.prisma.character.findFirst({
-      where: {
-        name: name,
-      },
-    });
-
-    if (c) {
-      const min = (new Date().getTime() - c.upd_date.getTime()) / 1000 / 60;
-      if (min < 1) {
-        return true;
-      }
-    }
-
     const character = await this.prisma.character.upsert({
       where: {
         name: name,

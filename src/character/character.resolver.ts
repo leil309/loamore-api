@@ -9,7 +9,7 @@ export class CharacterResolver {
   constructor(private readonly characterService: CharacterService) {}
 
   @Query(() => character, {
-    description: 'character 조회',
+    description: 'character 빠른 조회',
   })
   findCharacter(@Args('name', { type: () => String }) name: string) {
     return this.characterService.findCharacter(name);
@@ -22,10 +22,11 @@ export class CharacterResolver {
     return this.characterService.findCharacterRanking(args);
   }
 
-  @Mutation(() => Boolean, {
-    description: 'character 가져오기',
+  @Mutation(() => character, {
+    description: 'character 최신정보 조회',
   })
-  upsert(@Args('name', { type: () => String }) name: string) {
-    return this.characterService.upsert(name);
+  async upsert(@Args('name', { type: () => String }) name: string) {
+    await this.characterService.upsert(name);
+    return this.characterService.findCharacter(name);
   }
 }
