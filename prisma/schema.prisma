@@ -5,14 +5,14 @@ generator client {
 generator nestgraphql {
   provider                          = "node node_modules/prisma-nestjs-graphql"
   output                            = "../src/@generated"
-  graphqlScalars_DateTime_name      = "GraphQLDateTime"
+  fields_Validator_from             = "class-validator"
+  purgeOutput                       = "true"
   noTypeId                          = "true"
   graphqlScalars_BigInt_name        = "GraphQLBigInt"
+  fields_Validator_input            = "true"
+  graphqlScalars_DateTime_name      = "GraphQLDateTime"
   graphqlScalars_BigInt_specifier   = "graphql-scalars"
   graphqlScalars_DateTime_specifier = "graphql-scalars"
-  fields_Validator_input            = "true"
-  purgeOutput                       = "true"
-  fields_Validator_from             = "class-validator"
 }
 
 datasource db {
@@ -89,7 +89,7 @@ model character_gem {
   character    character @relation(fields: [character_id], references: [id])
   item_id      BigInt
   item         item      @relation(fields: [item_id], references: [id])
-  skill_id     BigInt
+  skill_id     BigInt    @default(0)
   skill        skill     @relation(fields: [skill_id], references: [id])
   slot         Int       @db.TinyInt
   level        Int       @db.TinyInt
@@ -131,8 +131,11 @@ model engraving {
   id                  BigInt                @id @default(autoincrement())
   name                String                @unique(map: "ENGRAVING_NAME") @db.VarChar(50)
   class_yn            class_yn              @default(N)
+  class_id            BigInt?
+  classJob            classJob?             @relation(fields: [class_id], references: [id])
   image_uri           String                @db.VarChar(512)
   info                String                @db.VarChar(2000)
+
   character_engraving character_engraving[]
 }
 
@@ -159,7 +162,6 @@ model character_skill {
   stagger_value          String?                    @db.VarChar(5)
   attack_type            String?                    @db.VarChar(10)
   use_yn                 use_yn                     @default(N)
-
   character_skill_tripod character_skill_tripod[]
 
   @@unique([character_id, skill_id], map: "SUPER")
@@ -202,6 +204,18 @@ model tripod {
   character_skill_tripod character_skill_tripod[]
 
   @@unique([name, skill_id], map: "SUPER")
+}
+
+/// This model has been renamed to 'classJob' during introspection, because the original name 'class' is reserved.
+model classJob {
+  id        BigInt  @id @default(autoincrement())
+  name      String  @unique(map: "NAME") @db.VarChar(50)
+  type      String  @default("")
+  image_uri String? @db.VarChar(512)
+
+  engraving engraving[]
+
+  @@map("class")
 }
 
 enum class_yn {

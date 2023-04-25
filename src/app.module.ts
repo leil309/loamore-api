@@ -8,6 +8,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { GraphQLModule } from '@nestjs/graphql';
 import { PrismaModule } from 'src/prisma/prisma.modules';
 import { CharacterModule } from 'src/character/character.module';
+import { ClassModule } from 'src/class/class.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { CharacterModule } from 'src/character/character.module';
     }),
     PrismaModule,
     CharacterModule,
+    ClassModule,
   ],
   controllers: [AppController],
   providers: [AppService],

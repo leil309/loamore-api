@@ -25,8 +25,8 @@ export class CharacterResolver {
   @Mutation(() => character, {
     description: 'character 최신정보 조회',
   })
-  async upsert(@Args('name', { type: () => String }) name: string) {
-    await this.characterService.upsert(name);
+  async upsertCharacter(@Args('name', { type: () => String }) name: string) {
+    await this.characterService.upsertCharacter(name);
     return this.characterService.findCharacter(name);
   }
 }

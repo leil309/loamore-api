@@ -156,7 +156,7 @@ export class CharacterService {
     });
   }
 
-  async upsert(name: string) {
+  async upsertCharacter(name: string) {
     const c = await this.prisma.character.findFirst({
       where: {
         name: name,
@@ -569,11 +569,13 @@ export class CharacterService {
             const isClassRegex = /name":"(.+?)"/;
             const effectRegex = /"레벨 별 효과보기","Element_001":"(.+?)"/;
             const imageUriRegex = /"iconPath":"(.*?)"/;
+            const classRegex = /"forceMiddleText":"([^"]+)"/;
 
             const nameMatch = data.match(nameRegex);
             const isClassMatch = data.match(isClassRegex);
             const effectMatch = data.match(effectRegex);
             const imageMatch = data.match(imageUriRegex);
+            const classMatch = data.match(classRegex);
 
             const name = nameMatch[1];
             const levelEffects = effectMatch
@@ -582,6 +584,9 @@ export class CharacterService {
 
             if (levelEffects && levelEffects.length >= 4) {
               levelEffects.shift();
+            }
+            if (classMatch) {
+              classMatch[1].replace(' 전용', '');
             }
 
             let res = {
@@ -592,6 +597,9 @@ export class CharacterService {
 
             if (isClassMatch) {
               res['classYn'] = isClassMatch[1] === '직업' ? 'Y' : 'N';
+            }
+            if (classMatch) {
+              res['className'] = classMatch[1].replace(' 전용', '');
             }
 
             return res;
@@ -975,9 +983,25 @@ export class CharacterService {
       },
     });
     dt.engraving.map(async (x, index) => {
-      let update = {
+      let update = {};
+      if (x.classYn) {
+        update['class_yn'] = x.classYn;
+      }
+      let create = {
+        name: x.name,
         class_yn: x.classYn ? x.classYn : class_yn.N,
+        image_uri: x.imageUri ? x.imageUri : '',
+        info: x.info ? x.info : '',
       };
+      if (x.className) {
+        const classJob = await this.prisma.classJob.findFirst({
+          where: {
+            name: x.className,
+          },
+        });
+        create['class_id'] = classJob.id;
+        update['class_id'] = classJob.id;
+      }
       if (x.imageUri) {
         update['image_uri'] = x.imageUri;
         update['info'] = x.info;
@@ -986,12 +1010,7 @@ export class CharacterService {
         where: {
           name: x.name,
         },
-        create: {
-          name: x.name,
-          class_yn: x.classYn ? x.classYn : class_yn.N,
-          image_uri: x.imageUri ? x.imageUri : '',
-          info: x.info ? x.info : '',
-        },
+        create: create,
         update: update,
       });
       await this.prisma.character_engraving.upsert({

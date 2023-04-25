@@ -50,6 +50,7 @@ export interface IAccessory {
   engraving: Array<any>;
 }
 export interface IEngraving {
+  className?: string | null | undefined;
   name: string;
   classYn: 'Y' | 'N';
   imageUri: string;
