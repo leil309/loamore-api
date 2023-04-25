@@ -9,6 +9,6 @@ export class FindCursorCharacterRankingArgs {
   @Field(() => Int, { nullable: true })
   take?: number;
 
-  @Field(() => String, { nullable: true })
-  className?: string;
+  @Field(() => [String], { nullable: true })
+  className?: Array<string>;
 }

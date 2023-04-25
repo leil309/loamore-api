@@ -31,6 +31,16 @@ export class CharacterService {
     take,
     className,
   }: FindCursorCharacterRankingArgs) {
+    let where = {
+      item_level: {
+        gte: 1340,
+      },
+    };
+    if (className.length > 0) {
+      where['class'] = {
+        in: className,
+      };
+    }
     const characterList = await this.prisma.character.findMany({
       take,
       skip: cursor ? 1 : 0,
@@ -49,14 +59,7 @@ export class CharacterService {
           where: { use_yn: 'Y' },
         },
       },
-      where: {
-        item_level: {
-          gte: 1340,
-        },
-        class: {
-          equals: className,
-        },
-      },
+      where: where,
       orderBy: [{ item_level: SortOrder.desc }, { id: SortOrder.asc }],
     });
 
