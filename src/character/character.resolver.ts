@@ -29,4 +29,11 @@ export class CharacterResolver {
     await this.characterService.upsertCharacter(name);
     return this.characterService.findCharacter(name);
   }
+
+  @Query(() => character, {
+    description: 'character 분석 정보 조회',
+  })
+  async analyzeCharacter(@Args('name', { type: () => String }) name: string) {
+    return this.characterService.analyzeCharacter(name);
+  }
 }

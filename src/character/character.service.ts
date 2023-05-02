@@ -21,6 +21,7 @@ import { class_yn } from 'src/@generated/prisma/class-yn.enum';
 import { SortOrder } from 'src/@generated/prisma/sort-order.enum';
 import { CharacterRankOutput } from 'src/character/dto/character.output';
 import { FindCursorCharacterRankingArgs } from './dto/characterRanking.args';
+import { use_yn } from '../@generated/prisma/use-yn.enum';
 
 @Injectable()
 export class CharacterService {
@@ -30,6 +31,7 @@ export class CharacterService {
     cursor,
     take,
     className,
+    engravingIds,
   }: FindCursorCharacterRankingArgs) {
     let where = {
       item_level: {
@@ -40,6 +42,17 @@ export class CharacterService {
       where['class'] = {
         in: className,
       };
+    }
+    if (className.length > 0) {
+      where['class'] = {
+        in: className,
+      };
+    }
+    let engWhere = {
+      use_yn: use_yn.Y,
+    };
+    if (!!engravingIds) {
+      engWhere['engraving_id'] = { in: engravingIds };
     }
     const characterList = await this.prisma.character.findMany({
       take,
@@ -56,7 +69,7 @@ export class CharacterService {
           include: {
             engraving: true,
           },
-          where: { use_yn: 'Y' },
+          where: engWhere,
         },
       },
       where: where,
@@ -1038,6 +1051,145 @@ export class CharacterService {
       });
     });
     return true;
+  }
+
+  async analyzeCharacter(name: string) {
+    const myCharacter = await this.prisma.character.findFirst({
+      where: { name: name },
+      include: {
+        character_engraving: {
+          include: {
+            engraving: true,
+          },
+        },
+      },
+    });
+    const top100 = await this.prisma.character.findMany({
+      take: 5,
+      select: {
+        name: true,
+        character_engraving: {
+          where: {
+            use_yn: use_yn.Y,
+          },
+          select: {
+            use_yn: true,
+            engraving: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+      },
+      where: {
+        class: myCharacter.class,
+      },
+      orderBy: [{ item_level: SortOrder.desc }],
+    });
+    const gb = await this.prisma.character.findMany({
+      where: {
+        class: myCharacter.class,
+      },
+      select: {
+        name: true,
+        character_engraving: {
+          where: {
+            use_yn: use_yn.Y,
+            AND: [
+              {
+                engraving_id: {
+                  in: myCharacter.character_engraving
+                    .filter((x) => x.engraving.class_yn === class_yn.Y)
+                    .map((y) => y.engraving_id),
+                },
+              },
+              {
+                level: {
+                  in: myCharacter.character_engraving
+                    .filter((x) => x.engraving.class_yn === class_yn.Y)
+                    .map((y) => y.level),
+                },
+              },
+            ],
+          },
+          select: {
+            engraving: {
+              select: {
+                id: true,
+                name: true,
+                class_yn: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: [{ item_level: SortOrder.desc }],
+      take: 50,
+    });
+
+    // const countEngravings = (characters: any): Map<string, number> => {
+    //   const engravingCount: Map<string, number> = new Map();
+    //
+    //   for (const character of characters) {
+    //     for (const engravingData of character.character_engraving) {
+    //       const engravingName = engravingData.engraving.name;
+    //
+    //       if (engravingCount.has(engravingName)) {
+    //         engravingCount.set(
+    //           engravingName,
+    //           engravingCount.get(engravingName) + 1,
+    //         );
+    //       } else {
+    //         engravingCount.set(engravingName, 1);
+    //       }
+    //     }
+    //   }
+    //
+    //   return engravingCount;
+    // };
+    //
+    // const engravingCount = countEngravings(gb);
+    //
+    // const sortedEngravingCount = Array.from(engravingCount.entries())
+    //   .sort((a, b) => b[1] - a[1])
+    //   .map(([name, count]) => ({ name, count }));
+
+    const countEngravingsByLevel = (
+      characters: any,
+    ): Map<string, { [level: number]: number }> => {
+      const engravingCountByLevel: Map<string, { [level: number]: number }> =
+        new Map();
+
+      for (const character of characters) {
+        for (const engravingData of character.character_engraving) {
+          const engravingName = engravingData.engraving.name;
+          const level = engravingData.level;
+
+          if (engravingCountByLevel.has(engravingName)) {
+            if (engravingCountByLevel.get(engravingName)[level]) {
+              engravingCountByLevel.get(engravingName)[level]++;
+            } else {
+              engravingCountByLevel.get(engravingName)[level] = 1;
+            }
+          } else {
+            engravingCountByLevel.set(engravingName, { [level]: 1 });
+          }
+        }
+      }
+
+      return engravingCountByLevel;
+    };
+
+    const engravingCountByLevel = countEngravingsByLevel(gb);
+
+    const sortedEngravingCountByLevel = Array.from(
+      engravingCountByLevel.entries(),
+    )
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([name, countByLevel]) => ({ name, countByLevel }));
+
+    return myCharacter;
   }
 
   basicStats = ($) => {
