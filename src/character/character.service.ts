@@ -1087,39 +1087,42 @@ export class CharacterService {
       },
       orderBy: [{ item_level: SortOrder.desc }],
     });
+
+    const engravingAnd = myCharacter.character_engraving
+      .filter((x) => x.engraving.class_yn === class_yn.Y)
+      .map((y) => {
+        return {
+          character_engraving: {
+            some: { level: y.level, engraving_id: y.engraving_id },
+          },
+        };
+      });
+    const noneId = myCharacter.character_engraving
+      .filter((x) => x.engraving.class_yn === class_yn.Y)
+      .map((y) => y.engraving_id);
+
     const gb = await this.prisma.character.findMany({
       where: {
+        AND: engravingAnd,
         class: myCharacter.class,
       },
       select: {
         name: true,
         character_engraving: {
-          where: {
-            use_yn: use_yn.Y,
-            AND: [
-              {
-                engraving_id: {
-                  in: myCharacter.character_engraving
-                    .filter((x) => x.engraving.class_yn === class_yn.Y)
-                    .map((y) => y.engraving_id),
-                },
-              },
-              {
-                level: {
-                  in: myCharacter.character_engraving
-                    .filter((x) => x.engraving.class_yn === class_yn.Y)
-                    .map((y) => y.level),
-                },
-              },
-            ],
-          },
           select: {
+            level: true,
             engraving: {
               select: {
                 id: true,
                 name: true,
                 class_yn: true,
               },
+            },
+          },
+          where: {
+            use_yn: use_yn.Y,
+            engraving_id: {
+              notIn: noneId,
             },
           },
         },
