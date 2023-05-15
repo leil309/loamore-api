@@ -1064,29 +1064,6 @@ export class CharacterService {
         },
       },
     });
-    const top100 = await this.prisma.character.findMany({
-      take: 5,
-      select: {
-        name: true,
-        character_engraving: {
-          where: {
-            use_yn: use_yn.Y,
-          },
-          select: {
-            use_yn: true,
-            engraving: {
-              select: {
-                name: true,
-              },
-            },
-          },
-        },
-      },
-      where: {
-        class: myCharacter.class,
-      },
-      orderBy: [{ item_level: SortOrder.desc }],
-    });
 
     const engravingAnd = myCharacter.character_engraving
       .filter((x) => x.engraving.class_yn === class_yn.Y)
@@ -1101,7 +1078,7 @@ export class CharacterService {
       .filter((x) => x.engraving.class_yn === class_yn.Y)
       .map((y) => y.engraving_id);
 
-    const gb = await this.prisma.character.findMany({
+    const topRanker = await this.prisma.character.findMany({
       where: {
         AND: engravingAnd,
         class: myCharacter.class,
@@ -1116,6 +1093,7 @@ export class CharacterService {
                 id: true,
                 name: true,
                 class_yn: true,
+                image_uri: true,
               },
             },
           },
@@ -1131,42 +1109,18 @@ export class CharacterService {
       take: 50,
     });
 
-    // const countEngravings = (characters: any): Map<string, number> => {
-    //   const engravingCount: Map<string, number> = new Map();
-    //
-    //   for (const character of characters) {
-    //     for (const engravingData of character.character_engraving) {
-    //       const engravingName = engravingData.engraving.name;
-    //
-    //       if (engravingCount.has(engravingName)) {
-    //         engravingCount.set(
-    //           engravingName,
-    //           engravingCount.get(engravingName) + 1,
-    //         );
-    //       } else {
-    //         engravingCount.set(engravingName, 1);
-    //       }
-    //     }
-    //   }
-    //
-    //   return engravingCount;
-    // };
-    //
-    // const engravingCount = countEngravings(gb);
-    //
-    // const sortedEngravingCount = Array.from(engravingCount.entries())
-    //   .sort((a, b) => b[1] - a[1])
-    //   .map(([name, count]) => ({ name, count }));
-
     const countEngravingsByLevel = (
       characters: any,
     ): Map<string, { [level: number]: number }> => {
-      const engravingCountByLevel: Map<string, { [level: number]: number }> =
-        new Map();
+      const engravingCountByLevel: Map<
+        string,
+        { imageUri: string; [level: number]: number }
+      > = new Map();
 
       for (const character of characters) {
         for (const engravingData of character.character_engraving) {
           const engravingName = engravingData.engraving.name;
+          const imageUri = engravingData.engraving.image_uri || '';
           const level = engravingData.level;
 
           if (engravingCountByLevel.has(engravingName)) {
@@ -1176,7 +1130,10 @@ export class CharacterService {
               engravingCountByLevel.get(engravingName)[level] = 1;
             }
           } else {
-            engravingCountByLevel.set(engravingName, { [level]: 1 });
+            engravingCountByLevel.set(engravingName, {
+              imageUri,
+              [level]: 1,
+            });
           }
         }
       }
@@ -1184,15 +1141,25 @@ export class CharacterService {
       return engravingCountByLevel;
     };
 
-    const engravingCountByLevel = countEngravingsByLevel(gb);
+    const engravingCountByLevel = countEngravingsByLevel(topRanker);
 
-    const sortedEngravingCountByLevel = Array.from(
-      engravingCountByLevel.entries(),
-    )
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([name, countByLevel]) => ({ name, countByLevel }));
-
-    return myCharacter;
+    return Array.from(engravingCountByLevel.entries()).map(([name, value]) => {
+      const levelList = {};
+      if (value[1]) {
+        levelList['lv1'] = value[1];
+      }
+      if (value[2]) {
+        levelList['lv2'] = value[2];
+      }
+      if (value[3]) {
+        levelList['lv3'] = value[3];
+      }
+      return {
+        name,
+        imageUri: value['imageUri'],
+        countByLevel: JSON.stringify(levelList),
+      };
+    });
   }
 
   basicStats = ($) => {

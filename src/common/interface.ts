@@ -58,6 +58,11 @@ export interface IEngraving {
   level: number;
 }
 
+export interface IStatsEngraving {
+  name: string;
+  level: number;
+}
+
 export enum CounterYn {
   Y = 'Y',
   N = 'N',
@@ -124,7 +129,7 @@ export interface ICharacter {
       charisma: number;
       kindness: number;
     };
-    engraving: any;
+    engraving?: Array<IStatsEngraving> | undefined | null;
   };
   imageUri: string;
   engraving: Array<IEngraving>;
