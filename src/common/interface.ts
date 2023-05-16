@@ -18,11 +18,7 @@ export interface IGem {
   rate: number;
   effectType: string;
   direction: string;
-  EquipGemSlotIndex?: number | undefined | null;
-  SkillDesc?: string | undefined | null;
-  SkillIcon?: string | undefined | null;
-  SkillName?: string | undefined | null;
-  SkillSlotIndex?: number | undefined | null;
+  skillIcon?: string | undefined | null;
 }
 export interface IGear {
   name: string;
@@ -137,7 +133,6 @@ export interface ICharacter {
   gearList: Array<IGear>;
   accessoryList: Array<IAccessory>;
   skillList: Array<ISkill>;
-  skillAdditionalInfo: Array<ISkillAdd>;
   avatarList: Array<any>;
   cardList: Array<any>;
   elixir: Array<any>;
