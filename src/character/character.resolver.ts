@@ -5,6 +5,7 @@ import { CharacterRankOutput } from 'src/character/dto/character.output';
 import { FindCursorCharacterRankingArgs } from './dto/characterRanking.args';
 import { CompareEngravingOutput } from './dto/compareEngraving.output';
 import { ICharacter } from 'src/common/interface';
+import { AverageEngravingOutput } from 'src/character/dto/averageEngraving.output';
 
 @Resolver()
 export class CharacterResolver {
@@ -33,10 +34,19 @@ export class CharacterResolver {
     return this.characterService.findCharacter(character.userName);
   }
 
-  @Query(() => [CompareEngravingOutput], {
-    description: 'character 분석 정보 조회',
+  // @Query(() => [CompareEngravingOutput], {
+  //   description: 'character 분석 정보 조회',
+  // })
+  // async analyzeCharacter(@Args('name', { type: () => String }) name: string) {
+  //   return this.characterService.analyzeCharacter(name);
+  // }
+
+  @Query(() => [AverageEngravingOutput], {
+    description: '평균 각인 정보 조회',
   })
-  async analyzeCharacter(@Args('name', { type: () => String }) name: string) {
-    return this.characterService.analyzeCharacter(name);
+  async findAverageEngraving(
+    @Args('name', { type: () => String }) name: string,
+  ) {
+    return this.characterService.findAverageEngraving(name);
   }
 }

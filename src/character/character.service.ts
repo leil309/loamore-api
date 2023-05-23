@@ -173,6 +173,19 @@ export class CharacterService {
   }
 
   async upsertCharacter(dt: ICharacter) {
+    const c = await this.prisma.character.findUnique({
+      where: {
+        name: dt.userName,
+      },
+    });
+
+    if (c) {
+      const min = (new Date().getTime() - c.upd_date.getTime()) / 1000 / 60;
+      if (min <= 3) {
+        return true;
+      }
+    }
+
     // 1. 캐릭터 기본 정보
     const character = await this.prisma.character.upsert({
       where: {
@@ -203,14 +216,6 @@ export class CharacterService {
         upd_date: new Date(),
       },
     });
-
-    if (character) {
-      const min =
-        (new Date().getTime() - character.upd_date.getTime()) / 1000 / 60;
-      if (min < 1) {
-        return true;
-      }
-    }
 
     // 2.스킬
     await this.prisma.character_skill.updateMany({
@@ -694,15 +699,15 @@ export class CharacterService {
     const engravingCountByLevel = countEngravingsByLevel(topRanker);
 
     return Array.from(engravingCountByLevel.entries()).map(([name, value]) => {
-      const levelList = {};
+      const levelList = [];
       if (value[1]) {
-        levelList['lv1'] = value[1];
+        levelList.push({ level: 1, count: value[1] });
       }
       if (value[2]) {
-        levelList['lv2'] = value[2];
+        levelList.push({ level: 2, count: value[2] });
       }
       if (value[3]) {
-        levelList['lv3'] = value[3];
+        levelList.push({ level: 3, count: value[3] });
       }
       return {
         name,
@@ -710,6 +715,89 @@ export class CharacterService {
         countByLevel: JSON.stringify(levelList),
       };
     });
+  }
+
+  async findAverageEngraving(name: string) {
+    const myCharacter = await this.prisma.character.findFirst({
+      where: { name: name },
+      include: {
+        character_engraving: {
+          include: {
+            engraving: true,
+          },
+        },
+      },
+    });
+
+    const engravingAnd = myCharacter.character_engraving
+      .filter((x) => x.engraving.class_yn === class_yn.Y)
+      .map((y) => {
+        return {
+          character_engraving: {
+            some: { level: y.level, engraving_id: y.engraving_id },
+          },
+        };
+      });
+    const noneId = myCharacter.character_engraving
+      .filter((x) => x.engraving.class_yn === class_yn.Y)
+      .map((y) => y.engraving_id);
+
+    const topRanker = await this.prisma.character.findMany({
+      where: {
+        AND: engravingAnd,
+        class: myCharacter.class,
+      },
+      select: {
+        name: true,
+        character_engraving: {
+          select: {
+            level: true,
+            engraving: {
+              select: {
+                id: true,
+                name: true,
+                class_yn: true,
+                image_uri: true,
+              },
+            },
+          },
+          where: {
+            use_yn: use_yn.Y,
+            engraving_id: {
+              notIn: noneId,
+            },
+          },
+        },
+      },
+      orderBy: [{ item_level: SortOrder.desc }],
+      take: 100,
+    });
+
+    const ave = topRanker.map((ch) => {
+      return ch.character_engraving
+        .map((ce) => {
+          return JSON.stringify({
+            level: ce.level,
+            ...ce.engraving,
+          });
+        })
+        .sort()
+        .join();
+    });
+
+    return Object.entries(
+      ave.reduce((acc, curr) => {
+        acc[curr] = (acc[curr] || 0) + 1;
+        return acc;
+      }, {}),
+    )
+      .map((x: [any, number]) => {
+        return {
+          engraving: JSON.parse('[' + x[0] + ']').sort((a, b) => a.id - b.id),
+          count: x[1],
+        };
+      })
+      .sort((a, b) => b.count - a.count);
   }
 
   basicStats = ($) => {
