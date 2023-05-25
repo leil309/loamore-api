@@ -34,13 +34,6 @@ export class CharacterResolver {
     return this.characterService.findCharacter(character.userName);
   }
 
-  // @Query(() => [CompareEngravingOutput], {
-  //   description: 'character 분석 정보 조회',
-  // })
-  // async analyzeCharacter(@Args('name', { type: () => String }) name: string) {
-  //   return this.characterService.analyzeCharacter(name);
-  // }
-
   @Query(() => [AverageEngravingOutput], {
     description: '평균 각인 정보 조회',
   })
@@ -48,5 +41,14 @@ export class CharacterResolver {
     @Args('name', { type: () => String }) name: string,
   ) {
     return this.characterService.findAverageEngraving(name);
+  }
+
+  @Query(() => [AverageEngravingOutput], {
+    description: '평균 보석 정보 조회',
+  })
+  async findAverageGem(
+    @Args('name', { type: () => String }) name: string,
+  ) {
+    return this.characterService.findAverageGem(name);
   }
 }

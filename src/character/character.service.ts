@@ -182,7 +182,7 @@ export class CharacterService {
     if (c) {
       const min = (new Date().getTime() - c.upd_date.getTime()) / 1000 / 60;
       if (min <= 3) {
-        return true;
+        return false;
       }
     }
 
@@ -798,6 +798,19 @@ export class CharacterService {
         };
       })
       .sort((a, b) => b.count - a.count);
+  }
+
+  async findAverageGem(name: string) {
+    const myCharacter = await this.prisma.character.findFirst({
+      where: { name: name },
+      include: {
+        character_engraving: {
+          include: {
+            engraving: true,
+          },
+        },
+      },
+    });
   }
 
   basicStats = ($) => {
