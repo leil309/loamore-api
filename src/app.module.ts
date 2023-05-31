@@ -23,12 +23,6 @@ import { ClassModule } from './class/class.module';
         sortSchema: true,
         playground: false,
         plugins: [ApolloServerPluginLandingPageLocalDefault()],
-        cors: {
-          origin: [
-            'https://studio.apollographql.com',
-          ],
-          credentials: true,
-        },
       }),
       inject: [ConfigService],
     }),
