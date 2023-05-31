@@ -15,12 +15,23 @@ import { ClassModule } from './class/class.module';
       isGlobal: true,
       envFilePath: '.env',
     }),
-    GraphQLModule.forRoot<ApolloDriverConfig>({
+    GraphQLModule.forRootAsync<ApolloDriverConfig>({
       driver: ApolloDriver,
-      playground: false,
-      autoSchemaFile: true,
-      sortSchema: true,
-      plugins: [ApolloServerPluginLandingPageLocalDefault()],
+      imports: [ConfigModule],
+      useFactory: async (configService: ConfigService) => ({
+        autoSchemaFile: true,
+        sortSchema: true,
+        playground: false,
+        plugins: [ApolloServerPluginLandingPageLocalDefault()],
+        cors: {
+          origin: [
+            'https://loamore-api-6fmu.vercel.app/',
+            'https://studio.apollographql.com/',
+          ],
+          credentials: true,
+        },
+      }),
+      inject: [ConfigService],
     }),
     PrismaModule,
     CharacterModule,
