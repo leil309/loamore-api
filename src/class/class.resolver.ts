@@ -1,7 +1,7 @@
-import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
-import { ClassService } from 'src/class/class.service';
-import { classJob } from 'src/@generated/class-job/class-job.model';
-import { character } from 'src/@generated/character/character.model';
+import { Mutation, Query, Resolver } from '@nestjs/graphql';
+import { ClassService } from './class.service';
+import { classJob } from '../@generated/class-job/class-job.model';
+
 @Resolver()
 export class ClassResolver {
   constructor(private readonly classService: ClassService) {}

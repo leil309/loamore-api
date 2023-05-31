@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { SortOrder } from 'src/@generated/prisma/sort-order.enum';
+import { PrismaService } from '../prisma/prisma.service';
+import { SortOrder } from '../@generated/prisma/sort-order.enum';
 
 @Injectable()
 export class ClassService {

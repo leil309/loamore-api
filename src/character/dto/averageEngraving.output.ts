@@ -1,5 +1,5 @@
 import { Field, Int, ObjectType } from '@nestjs/graphql';
-import { EngravingOutput } from 'src/character/dto/engraving.output';
+import { EngravingOutput } from './engraving.output';
 
 @ObjectType()
 export class AverageEngravingOutput {

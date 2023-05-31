@@ -2,13 +2,12 @@ import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ApolloServerPluginLandingPageLocalDefault } from 'apollo-server-core';
-import { join } from 'path';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { GraphQLModule } from '@nestjs/graphql';
-import { PrismaModule } from 'src/prisma/prisma.modules';
-import { CharacterModule } from 'src/character/character.module';
-import { ClassModule } from 'src/class/class.module';
+import { PrismaModule } from './prisma/prisma.modules';
+import { CharacterModule } from './character/character.module';
+import { ClassModule } from './class/class.module';
 
 @Module({
   imports: [
@@ -20,7 +19,7 @@ import { ClassModule } from 'src/class/class.module';
       driver: ApolloDriver,
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
-        autoSchemaFile: join(process.cwd(), 'src/schema.gql'),
+        autoSchemaFile: true,
         sortSchema: true,
         playground: false,
         plugins: [ApolloServerPluginLandingPageLocalDefault()],

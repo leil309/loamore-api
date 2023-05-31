@@ -1,11 +1,10 @@
 import { Resolver, Query, Args, Int, Mutation } from '@nestjs/graphql';
-import { CharacterService } from 'src/character/character.service';
-import { character } from 'src/@generated/character/character.model';
-import { CharacterRankOutput } from 'src/character/dto/character.output';
+import { CharacterService } from './character.service';
+import { character } from '../@generated/character/character.model';
+import { CharacterRankOutput } from './dto/character.output';
 import { FindCursorCharacterRankingArgs } from './dto/characterRanking.args';
-import { CompareEngravingOutput } from './dto/compareEngraving.output';
-import { ICharacter } from 'src/common/interface';
-import { AverageEngravingOutput } from 'src/character/dto/averageEngraving.output';
+import { ICharacter } from '../common/interface';
+import { AverageEngravingOutput } from './dto/averageEngraving.output';
 
 @Resolver()
 export class CharacterResolver {

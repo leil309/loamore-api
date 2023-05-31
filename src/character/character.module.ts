@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import { CharacterResolver } from 'src/character/character.resolver';
-import { CharacterService } from 'src/character/character.service';
+import { CharacterResolver } from './character.resolver';
+import { CharacterService } from './character.service';
 
 @Module({
   providers: [CharacterResolver, CharacterService],

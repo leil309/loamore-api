@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import { ClassResolver } from 'src/class/class.resolver';
-import { ClassService } from 'src/class/class.service';
+import { ClassResolver } from './class.resolver';
+import { ClassService } from './class.service';
 
 @Module({
   providers: [ClassResolver, ClassService],

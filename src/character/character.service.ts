@@ -1,25 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
-import * as cheerio from 'cheerio';
-import { ApolloError } from 'apollo-server-express';
-import * as https from 'https';
-import axios from 'axios';
-import * as _ from 'lodash';
+import { PrismaService } from '../prisma/prisma.service';
 import {
-  CounterYn,
-  IAccessory,
   ICharacter,
-  IGear,
-  IGem,
-  IScript,
-  ISkill,
-  ISkillAdd,
-  ITripod,
-  SelectedYn,
 } from '../common/interface';
-import { class_yn } from 'src/@generated/prisma/class-yn.enum';
-import { SortOrder } from 'src/@generated/prisma/sort-order.enum';
-import { CharacterRankOutput } from 'src/character/dto/character.output';
+import { class_yn } from '../@generated/prisma/class-yn.enum';
+import { SortOrder } from '../@generated/prisma/sort-order.enum';
+import { CharacterRankOutput } from './dto/character.output';
 import { FindCursorCharacterRankingArgs } from './dto/characterRanking.args';
 import { use_yn } from '../@generated/prisma/use-yn.enum';
 

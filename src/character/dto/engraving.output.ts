@@ -1,6 +1,6 @@
 import { Field, Int, ObjectType } from '@nestjs/graphql';
 import { GraphQLBigInt } from 'graphql-scalars';
-import { class_yn } from 'src/@generated/prisma/class-yn.enum';
+import { class_yn } from '../../@generated/prisma/class-yn.enum';
 
 @ObjectType()
 export class EngravingOutput {
