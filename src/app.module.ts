@@ -15,16 +15,12 @@ import { ClassModule } from './class/class.module';
       isGlobal: true,
       envFilePath: '.env',
     }),
-    GraphQLModule.forRootAsync<ApolloDriverConfig>({
+    GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
-      imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        autoSchemaFile: true,
-        sortSchema: true,
-        playground: false,
-        plugins: [ApolloServerPluginLandingPageLocalDefault()],
-      }),
-      inject: [ConfigService],
+      playground: false,
+      autoSchemaFile: true,
+      sortSchema: true,
+      plugins: [ApolloServerPluginLandingPageLocalDefault()],
     }),
     PrismaModule,
     CharacterModule,
