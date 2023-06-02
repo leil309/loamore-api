@@ -1,8 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import {
-  ICharacter,
-} from '../common/interface';
+import { ICharacter } from '../common/interface';
 import { class_yn } from '../@generated/prisma/class-yn.enum';
 import { SortOrder } from '../@generated/prisma/sort-order.enum';
 import { CharacterRankOutput } from './dto/character.output';
@@ -19,7 +17,7 @@ export class CharacterService {
     className,
     engravingIds,
   }: FindCursorCharacterRankingArgs) {
-    let where = {
+    const where = {
       item_level: {
         gte: 1340,
       },
@@ -34,7 +32,7 @@ export class CharacterService {
         in: className,
       };
     }
-    let engWhere = {
+    const engWhere = {
       use_yn: use_yn.Y,
     };
     if (!!engravingIds) {
@@ -540,11 +538,11 @@ export class CharacterService {
       },
     });
     dt.engraving.map(async (x, index) => {
-      let update = {};
+      const update = {};
       if (x.classYn) {
         update['class_yn'] = x.classYn;
       }
-      let create = {
+      const create = {
         name: x.name,
         class_yn: x.classYn ? x.classYn : class_yn.N,
         image_uri: x.imageUri ? x.imageUri : '',
@@ -762,9 +760,15 @@ export class CharacterService {
     const ave = topRanker.map((ch) => {
       return ch.character_engraving
         .map((ce) => {
+          const engrave = {
+            id: Number(ce.engraving.id),
+            name: ce.engraving.name,
+            class_yn: ce.engraving.class_yn,
+            image_uri: ce.engraving.image_uri,
+          };
           return JSON.stringify({
             level: ce.level,
-            ...ce.engraving,
+            ...engrave,
           });
         })
         .sort()
