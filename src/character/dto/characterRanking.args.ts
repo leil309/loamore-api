@@ -13,5 +13,5 @@ export class FindCursorCharacterRankingArgs {
   className?: Array<string>;
 
   @Field(() => [GraphQLBigInt], { nullable: true })
-  engravingIds?: Array<bigint | number>;
+  engravingIds?: Array<bigint>;
 }

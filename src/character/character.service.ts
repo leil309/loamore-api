@@ -17,6 +17,30 @@ export class CharacterService {
     className,
     engravingIds,
   }: FindCursorCharacterRankingArgs) {
+    let nonEngIds = [];
+    if (
+      className &&
+      className.length === 1 &&
+      engravingIds &&
+      engravingIds.length >= 1
+    ) {
+      const classId = await this.prisma.classJob.findFirst({
+        where: {
+          name: className[0],
+        },
+      });
+      const classEngraving = await this.prisma.engraving.findMany({
+        where: {
+          class_id: classId.id,
+          class_yn: class_yn.Y,
+          id: {
+            notIn: engravingIds,
+          },
+        },
+      });
+      nonEngIds = classEngraving.map((x) => x.id);
+    }
+
     const where = {
       item_level: {
         gte: 1340,
@@ -27,17 +51,22 @@ export class CharacterService {
         in: className,
       };
     }
-    if (className.length > 0) {
-      where['class'] = {
-        in: className,
-      };
-    }
-    const engWhere = {
-      use_yn: use_yn.Y,
-    };
-    if (!!engravingIds) {
-      engWhere['engraving_id'] = { in: engravingIds };
-    }
+
+    const engAnd =
+      engravingIds && engravingIds.length > 0
+        ? {
+            AND: {
+              character_engraving: {
+                none: {
+                  engraving_id: {
+                    in: nonEngIds,
+                  },
+                },
+              },
+            },
+          }
+        : {};
+
     const characterList = await this.prisma.character.findMany({
       take,
       skip: cursor ? 1 : 0,
@@ -53,10 +82,12 @@ export class CharacterService {
           include: {
             engraving: true,
           },
-          where: engWhere,
         },
       },
-      where: where,
+      where: {
+        ...where,
+        ...engAnd,
+      },
       orderBy: [{ item_level: SortOrder.desc }, { id: SortOrder.asc }],
     });
 
