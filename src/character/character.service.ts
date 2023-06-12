@@ -256,41 +256,48 @@ export class CharacterService {
         use_yn: 'N',
       },
     });
-    await this.prisma.$transaction(
-      dt.gemList.map((x) =>
-        this.prisma.skill.upsert({
-          where: {
-            name_class: {
-              name: x.skill,
-              class: character.class,
-            },
-          },
-          create: {
-            name: x.skill,
-            class: x.class,
-            image_uri: x.skillIcon,
-          },
-          update: {
-            image_uri: x.skillIcon,
-          },
-        }),
-      ),
-    );
+    // await this.prisma.$transaction(
+    //   dt.gemList.map((x) =>
+    //     this.prisma.skill.upsert({
+    //       where: {
+    //         name_class: {
+    //           name: x.skill,
+    //           class: character.class,
+    //         },
+    //       },
+    //       create: {
+    //         name: x.skill,
+    //         class: x.class,
+    //         image_uri: x.skillIcon,
+    //       },
+    //       update: {
+    //         image_uri: x.skillIcon,
+    //       },
+    //     }),
+    //   ),
+    // );
     dt.skillList.map(async (skillInfo) => {
-      const skill = await this.prisma.skill.upsert({
+      // const skill = await this.prisma.skill.upsert({
+      //   where: {
+      //     name_class: {
+      //       name: skillInfo.name,
+      //       class: skillInfo.class,
+      //     },
+      //   },
+      //   create: {
+      //     name: skillInfo.name,
+      //     class: skillInfo.class,
+      //     image_uri: skillInfo.imageUri,
+      //   },
+      //   update: {
+      //     image_uri: skillInfo.imageUri,
+      //   },
+      // });
+
+      const skill = await this.prisma.skill.findFirst({
         where: {
-          name_class: {
-            name: skillInfo.name,
-            class: skillInfo.class,
-          },
-        },
-        create: {
           name: skillInfo.name,
-          class: skillInfo.class,
-          image_uri: skillInfo.imageUri,
-        },
-        update: {
-          image_uri: skillInfo.imageUri,
+          class: character.class,
         },
       });
 
@@ -324,24 +331,30 @@ export class CharacterService {
       });
 
       skillInfo.tripods.map(async (x) => {
-        const tripod = await this.prisma.tripod.upsert({
+        // const tripod = await this.prisma.tripod.upsert({
+        //   where: {
+        //     name_skill_id: {
+        //       name: x.name,
+        //       skill_id: skill.id,
+        //     },
+        //   },
+        //   create: {
+        //     name: x.name,
+        //     skill_id: skill.id,
+        //     image_uri: x.imageUri,
+        //     tier: x.tier,
+        //     slot: x.slot,
+        //   },
+        //   update: {
+        //     image_uri: x.imageUri,
+        //     tier: x.tier,
+        //     slot: x.slot,
+        //   },
+        // });
+        const tripod = await this.prisma.tripod.findFirst({
           where: {
-            name_skill_id: {
-              name: x.name,
-              skill_id: skill.id,
-            },
-          },
-          create: {
             name: x.name,
             skill_id: skill.id,
-            image_uri: x.imageUri,
-            tier: x.tier,
-            slot: x.slot,
-          },
-          update: {
-            image_uri: x.imageUri,
-            tier: x.tier,
-            slot: x.slot,
           },
         });
 

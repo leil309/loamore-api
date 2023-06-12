@@ -35,6 +35,7 @@ import { ClassModule } from './class/class.module';
     }),
     PrismaModule,
     CharacterModule,
+    ClassModule,
   ],
   controllers: [AppController],
   providers: [AppService],
