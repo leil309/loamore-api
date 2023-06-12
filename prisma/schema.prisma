@@ -97,6 +97,8 @@ model character_gem {
   effect_type  String    @db.VarChar(20)
   direction    String    @db.VarChar(10)
   use_yn       use_yn    @default(N)
+  ins_date     DateTime  @default(now()) @db.DateTime(0)
+  upd_date     DateTime  @default(now()) @db.DateTime(0)
 
   @@unique([character_id, slot], map: "SUPER")
 }

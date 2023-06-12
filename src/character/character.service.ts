@@ -449,6 +449,8 @@ export class CharacterService {
           effect_type: x.effectType,
           direction: x.direction,
           use_yn: 'Y',
+          ins_date: new Date(),
+          upd_date: new Date(),
         },
         update: {
           item_id: gem.id,
@@ -458,6 +460,7 @@ export class CharacterService {
           effect_type: x.effectType,
           direction: x.direction,
           use_yn: 'Y',
+          upd_date: new Date(),
         },
       });
     });
