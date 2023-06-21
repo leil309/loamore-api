@@ -43,11 +43,21 @@ export class CharacterResolver {
   }
 
   @Query(() => [AverageEngravingOutput], {
-    description: '평균 보석 정보 조회',
+    description: '평균 스탯 정보 조회',
   })
-  async findAverageGem(
+  async findAverageStats(
     @Args('name', { type: () => String }) name: string,
   ) {
-    return this.characterService.findAverageGem(name);
+    return this.characterService.findAverageStats(name);
+  }
+
+
+  @Query(() => [AverageEngravingOutput], {
+    description: '평균 보석 정보 조회',
+  })
+  async jsjsjs(
+    @Args('name', { type: () => String }) name: string,
+  ) {
+    return this.characterService.upsertJs(name);
   }
 }

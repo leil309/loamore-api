@@ -32,6 +32,7 @@ export interface IGear {
   setEffect: Array<string>;
   baseEffect: Array<string>;
   additionalEffect: Array<string>;
+  grade: number;
 }
 
 export interface IAccessory {

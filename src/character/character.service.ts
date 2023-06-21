@@ -6,6 +6,9 @@ import { SortOrder } from '../@generated/prisma/sort-order.enum';
 import { CharacterRankOutput } from './dto/character.output';
 import { FindCursorCharacterRankingArgs } from './dto/characterRanking.args';
 import { use_yn } from '../@generated/prisma/use-yn.enum';
+import * as cheerio from 'cheerio';
+import * as https from "https";
+import axios from "axios";
 
 @Injectable()
 export class CharacterService {
@@ -185,6 +188,192 @@ export class CharacterService {
         name: name,
       },
     });
+  }
+
+  async upsertJs(name: string) {
+    const c = await this.prisma.character.findFirst({
+      where: {
+        name: name,
+      },
+    });
+
+    if (c) {
+      const min = (new Date().getTime() - c.upd_date.getTime()) / 1000 / 60;
+      if (min < 1) {
+        return true;
+      }
+    }
+
+    const agent = new https.Agent({
+      rejectUnauthorized: false,
+    });
+    const reg = /<[^>]*>?/g;
+    const dt = await axios(
+      `https://lostark.game.onstove.com/Profile/Character/${name}`,
+      {
+        method: 'get',
+        httpsAgent: agent,
+      },
+    )
+      .then((response) => response.data)
+      .then((html) => {
+        const $ = cheerio.load(html);
+        let character: ICharacter = {
+          accessoryList: undefined,
+          avatarList: undefined,
+          cardList: undefined,
+          class: "",
+          elixir: undefined,
+          engraving: undefined,
+          gearList: undefined,
+          gemList: undefined,
+          guildName: "",
+          imageUri: "",
+          itemLevel: undefined,
+          level: undefined,
+          ownUserName: undefined,
+          serverName: "",
+          skillList: undefined,
+          stats: {
+            basic: {attack_power: 0, max_health: 0},
+            battle: {critical: 0, domination: 0, endurance: 0, expertise: 0, specialization: 0, swiftness: 0},
+            virtues: {charisma: 0, courage: 0, kindness: 0, wisdom: 0}
+          },
+          userName: ""
+
+        };
+        // 레벨
+        character.level = $('.profile-character-info__lv')
+          .text()
+          .replace('Lv.', '');
+        // 템렙
+        $('.level-info2__item > span').each(function (index, item) {
+          if (index === 1)
+            character.itemLevel = $(this).text().replace('Lv.', '');
+        });
+        // 기본스탯
+        character.stats.basic = this.basicStats($);
+        // 전투스탯
+        character.stats.battle = this.battleStats($);
+        // 성향
+        character.stats.virtues = this.virtues($);
+        // 각인
+        character.stats.engraving = this.engraving($);
+
+        // 보유 캐릭터 목록
+        let count = 0;
+        let temp = [];
+        $('ul.profile-character-list__char > li > span > button').each(
+          function (index, item) {
+            temp[count] = $(this)
+              .attr('onclick')
+              ?.split('/')[3]
+              .replace("'", '');
+            count = count + 1;
+          },
+        );
+        character.ownUserName = temp;
+        character.class = $(
+          '#lostark-wrapper > div > main > div > div.profile-character-info > img[src]',
+        ).attr().alt;
+        character.guildName = $(
+          '#lostark-wrapper > div > main > div > div.profile-ingame > div.profile-info > div.game-info > div.game-info__guild > span:nth-child(2)',
+        ).text();
+        character.serverName = $(
+          '#lostark-wrapper > div > main > div > div.profile-character-info > span.profile-character-info__server',
+        )
+          .text()
+          .replace('@', '');
+        character.imageUri = $(
+          '#profile-equipment > div.profile-equipment__character > img',
+        ).attr().src;
+
+        const script = $('#profile-ability > script')
+          .text()
+          .replace('$.Profile = ', '')
+          .replace(/\t/gi, '')
+          .replace(/\n/gi, '')
+          .replace(/\\n/gi, '')
+          .replace(/\\t/gi, '')
+          .replace(/;/gi, '');
+
+        const scriptJson = JSON.parse(script);
+        if (!scriptJson) {
+          return;
+        }
+
+        character.gearList = Object.entries(scriptJson.Equip)
+          .filter((obj) => !obj[0].match('Gem'))
+          .filter((obj) => {
+            const num = parseInt(obj[0].split('_')[1]);
+            return [0, 1, 2, 3, 4, 5].includes(num);
+          })
+          .map((obj: any, index: number) => {
+            const data: string = JSON.stringify(obj[1]).replace(reg, '');
+            // const setEffect = data.Element_009.value.Element_000.topStr
+
+            const itemNameRegex =
+              /"type":"NameTagBox","value":"\+?(\d+)?([^"]+)"/; // /"type":"NameTagBox","value":"\+(\d+)?([^"]+)"/
+            const itemLevelRegex = /"leftStr2":"아이템 레벨 (\d+)/;
+            const itemTierRegex = /\(티어 (\d+)\)/;
+            const qualityRegex = /"qualityValue":(\d+)/;
+            const baseEffectRegex = /"기본 효과","[^"]+":"([^"]+)"/;
+            const additionalEffectRegex = /"추가 효과","[^"]+":"([^"]+)"/;
+            const imageUriRegex = /"iconPath":"(.*?)"/;
+            const iconGrade = /"iconGrade":(\d)/;
+
+            const setNameRegex = /"topStr":"([가-힣\s]+)"},"Element_001"/;
+            const setEffectRegex =
+              /"bPoint":(true|false),"contentStr":"[^}]*?([^}]*?)}},"topStr":"(\d) 세트 효과/g;
+
+            const setNameMatch = setNameRegex.exec(data);
+            const setName = setNameMatch ? setNameMatch[1] : '';
+
+            let setEffect = [];
+            let setEffectMatch;
+            const imageMatch = imageUriRegex.exec(data);
+            while ((setEffectMatch = setEffectRegex.exec(data)) !== null) {
+              setEffect.push({
+                bPoint: setEffectMatch[1] === 'true',
+                piece: setEffectMatch[3],
+                effect: setEffectMatch[2],
+              });
+            }
+
+            let gear = {
+              name: itemNameRegex.exec(data)[2].trim(),
+              honing: itemNameRegex.exec(data)[1]
+                ? parseInt(itemNameRegex.exec(data)[1])
+                : 0,
+              imageUri: imageMatch ? imageMatch[1] : '',
+              slot: index,
+              quality: data.match(qualityRegex)
+                ? parseInt(data.match(qualityRegex)[1])
+                : -1,
+              level: data.match(itemLevelRegex)
+                ? parseInt(data.match(itemLevelRegex)[1])
+                : -1,
+              tier: data.match(itemTierRegex)
+                ? parseInt(data.match(itemTierRegex)[1])
+                : -1,
+              setName: setName,
+              setEffect: setEffect,
+              baseEffect: baseEffectRegex.exec(data)
+                ? baseEffectRegex.exec(data)[1].split(/(?<=\d)(?=[가-힣])/)
+                : [],
+              additionalEffect: additionalEffectRegex.exec(data)
+                ? additionalEffectRegex
+                  .exec(data)[1]
+                  .split(/(?<=\d)(?=[가-힣])/)
+                : [],
+              grade: iconGrade.exec(data) ? parseInt(iconGrade.exec(data)[1]) : 0
+            };
+            return gear;
+          });
+
+        return character;
+      });
+    return;
   }
 
   async upsertCharacter(dt: ICharacter) {
@@ -484,11 +673,13 @@ export class CharacterService {
           image_uri: x.imageUri,
           tier: x.tier,
           set_name: x.setName,
+          grade: x.grade,
         },
         update: {
           image_uri: x.imageUri,
           tier: x.tier,
           set_name: x.setName,
+          grade: x.grade,
         },
       });
 
@@ -769,13 +960,52 @@ export class CharacterService {
           },
         };
       });
-    const noneId = myCharacter.character_engraving
+    const classEngravingId = myCharacter.character_engraving
       .filter((x) => x.engraving.class_yn === class_yn.Y)
       .map((y) => y.engraving_id);
 
+
+    const classId = await this.prisma.classJob.findFirst({
+      where: {
+        name: myCharacter.class,
+      },
+    });
+    const classEngraving = await this.prisma.engraving.findMany({
+      where: {
+        class_id: classId.id,
+        class_yn: class_yn.Y,
+        id: {
+          notIn: classEngravingId,
+        },
+      },
+    });
+    const noneClassEngId = classEngraving.map(x => x.id)
+
+    const noneEngAnd: any[] =
+      noneClassEngId && noneClassEngId.length > 0 ?
+        noneClassEngId.map(x => {
+          return {
+            character_engraving: { none: {engraving_id: x} }
+          }
+        }) : []
+
+    const someEngAnd: any[] =
+      classEngravingId && classEngravingId.length > 0 ?
+        classEngravingId.map(x => {
+          return {
+                character_engraving: { some: {engraving_id: x} }
+              }
+            }) : []
+
+    const engAnd =
+      {
+        AND: noneEngAnd.concat(someEngAnd)
+      }
+
+
     const topRanker = await this.prisma.character.findMany({
       where: {
-        AND: engravingAnd,
+        ...engAnd,
         class: myCharacter.class,
       },
       select: {
@@ -795,7 +1025,7 @@ export class CharacterService {
           where: {
             use_yn: use_yn.Y,
             engraving_id: {
-              notIn: noneId,
+              notIn: classEngravingId,
             },
           },
         },
@@ -835,6 +1065,63 @@ export class CharacterService {
         };
       })
       .sort((a, b) => b.count - a.count);
+  }
+
+  async findAverageStats(name: string) {
+    const myCharacter = await this.prisma.character.findFirst({
+      where: { name: name },
+      include: {
+        character_engraving: {
+          include: {
+            engraving: true,
+          },
+        },
+      },
+    });
+
+    const engravingAnd = myCharacter.character_engraving
+      .filter((x) => x.engraving.class_yn === class_yn.Y)
+      .map((y) => {
+        return {
+          character_engraving: {
+            some: { level: y.level, engraving_id: y.engraving_id },
+          },
+        };
+      });
+    const noneId = myCharacter.character_engraving
+      .filter((x) => x.engraving.class_yn === class_yn.Y)
+      .map((y) => y.engraving_id);
+
+    const topRanker = await this.prisma.character.findMany({
+      where: {
+        AND: engravingAnd,
+        class: myCharacter.class,
+      },
+      select: {
+        name: true,
+        character_engraving: {
+          select: {
+            level: true,
+            engraving: {
+              select: {
+                id: true,
+                name: true,
+                class_yn: true,
+                image_uri: true,
+              },
+            },
+          },
+          where: {
+            use_yn: use_yn.Y,
+            engraving_id: {
+              notIn: noneId,
+            },
+          },
+        },
+      },
+      orderBy: [{ item_level: SortOrder.desc }],
+      take: 100,
+    });
   }
 
   async findAverageGem(name: string) {
