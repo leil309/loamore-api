@@ -465,28 +465,22 @@ export class CharacterService {
     //     }),
     //   ),
     // );
-    dt.skillList.map(async (skillInfo) => {
-      // const skill = await this.prisma.skill.upsert({
-      //   where: {
-      //     name_class: {
-      //       name: skillInfo.name,
-      //       class: skillInfo.class,
-      //     },
-      //   },
-      //   create: {
-      //     name: skillInfo.name,
-      //     class: skillInfo.class,
-      //     image_uri: skillInfo.imageUri,
-      //   },
-      //   update: {
-      //     image_uri: skillInfo.imageUri,
-      //   },
-      // });
 
-      const skill = await this.prisma.skill.findFirst({
+    const upsertSkill = async (skillInfo) => {
+      const skill = await this.prisma.skill.upsert({
         where: {
+          name_class: {
+            name: skillInfo.name,
+            class: skillInfo.class,
+          },
+        },
+        create: {
           name: skillInfo.name,
-          class: character.class,
+          class: skillInfo.class,
+          image_uri: skillInfo.imageUri,
+        },
+        update: {
+          image_uri: skillInfo.imageUri,
         },
       });
 
@@ -519,56 +513,54 @@ export class CharacterService {
         },
       });
 
-      skillInfo.tripods.map(async (x) => {
-        // const tripod = await this.prisma.tripod.upsert({
-        //   where: {
-        //     name_skill_id: {
-        //       name: x.name,
-        //       skill_id: skill.id,
-        //     },
-        //   },
-        //   create: {
-        //     name: x.name,
-        //     skill_id: skill.id,
-        //     image_uri: x.imageUri,
-        //     tier: x.tier,
-        //     slot: x.slot,
-        //   },
-        //   update: {
-        //     image_uri: x.imageUri,
-        //     tier: x.tier,
-        //     slot: x.slot,
-        //   },
-        // });
-        const tripod = await this.prisma.tripod.findFirst({
-          where: {
-            name: x.name,
-            skill_id: skill.id,
-          },
-        });
+      await Promise.all(
+        skillInfo.tripods.map(async (x) => {
+          const tripod = await this.prisma.tripod.upsert({
+            where: {
+              name_skill_id: {
+                name: x.name,
+                skill_id: skill.id,
+              },
+            },
+            create: {
+              name: x.name,
+              skill_id: skill.id,
+              image_uri: x.imageUri,
+              tier: x.tier,
+              slot: x.slot,
+            },
+            update: {
+              image_uri: x.imageUri,
+              tier: x.tier,
+              slot: x.slot,
+            },
+          });
 
-        await this.prisma.character_skill_tripod.upsert({
-          where: {
-            character_skill_id_tripod_id: {
+          await this.prisma.character_skill_tripod.upsert({
+            where: {
+              character_skill_id_tripod_id: {
+                character_skill_id: characterSkill.id,
+                tripod_id: tripod.id,
+              },
+            },
+            create: {
               character_skill_id: characterSkill.id,
               tripod_id: tripod.id,
+              level: x.level,
+              selected_yn: x.selected,
+              use_yn: 'Y',
             },
-          },
-          create: {
-            character_skill_id: characterSkill.id,
-            tripod_id: tripod.id,
-            level: x.level,
-            selected_yn: x.selected,
-            use_yn: 'Y',
-          },
-          update: {
-            level: x.level,
-            selected_yn: x.selected,
-            use_yn: 'Y',
-          },
-        });
-      });
-    });
+            update: {
+              level: x.level,
+              selected_yn: x.selected,
+              use_yn: 'Y',
+            },
+          });
+        }),
+      );
+    };
+
+    await Promise.all(dt.skillList.map(upsertSkill));
 
     const skillList = await this.prisma.skill
       .findMany({
@@ -589,15 +581,14 @@ export class CharacterService {
 
     // 3. 보석
     const gemSkills = dt.gemList.map((x) => {
-      const skillId = skillList
-        ? skillList.find((y) => y.skill === x.skill).skillId
-        : 0;
+      const skillId = skillList?.find((y) => y.skill === x.skill)?.skillId || 0;
 
       return {
         ...x,
         skillId,
       };
     });
+
     await this.prisma.character_gem.updateMany({
       where: {
         character_id: character.id,
@@ -606,53 +597,57 @@ export class CharacterService {
         use_yn: 'N',
       },
     });
-    gemSkills.map(async (x) => {
-      const gem = await this.prisma.item.upsert({
-        where: {
-          name: x.name.trim(),
-        },
-        create: {
-          name: x.name.trim(),
-          image_uri: x.imageUri,
-          tier: x.tier,
-        },
-        update: {
-          image_uri: x.imageUri,
-          tier: x.tier,
-        },
-      });
-      await this.prisma.character_gem.upsert({
-        where: {
-          character_id_slot: {
-            character_id: character.id,
-            slot: x.slot,
+
+    await Promise.all(
+      gemSkills.map(async (x) => {
+        const gem = await this.prisma.item.upsert({
+          where: {
+            name: x.name.trim(),
           },
-        },
-        create: {
-          character_id: character.id,
-          item_id: gem.id,
-          slot: x.slot,
-          level: x.level,
-          skill_id: x.skillId,
-          rate: x.rate,
-          effect_type: x.effectType,
-          direction: x.direction,
-          use_yn: 'Y',
-          ins_date: new Date(),
-          upd_date: new Date(),
-        },
-        update: {
-          item_id: gem.id,
-          level: x.level,
-          skill_id: x.skillId,
-          rate: x.rate,
-          effect_type: x.effectType,
-          direction: x.direction,
-          use_yn: 'Y',
-          upd_date: new Date(),
-        },
-      });
-    });
+          create: {
+            name: x.name.trim(),
+            image_uri: x.imageUri,
+            tier: x.tier,
+          },
+          update: {
+            image_uri: x.imageUri,
+            tier: x.tier,
+          },
+        });
+
+        await this.prisma.character_gem.upsert({
+          where: {
+            character_id_slot: {
+              character_id: character.id,
+              slot: x.slot,
+            },
+          },
+          create: {
+            character_id: character.id,
+            item_id: gem.id,
+            slot: x.slot,
+            level: x.level,
+            skill_id: x.skillId,
+            rate: x.rate,
+            effect_type: x.effectType,
+            direction: x.direction,
+            use_yn: 'Y',
+            ins_date: new Date(),
+            upd_date: new Date(),
+          },
+          update: {
+            item_id: gem.id,
+            level: x.level,
+            skill_id: x.skillId,
+            rate: x.rate,
+            effect_type: x.effectType,
+            direction: x.direction,
+            use_yn: 'Y',
+            upd_date: new Date(),
+          },
+        });
+      }),
+    );
 
     // 4. 장비
     await this.prisma.character_gear.updateMany({
@@ -663,53 +658,56 @@ export class CharacterService {
         use_yn: 'N',
       },
     });
-    dt.gearList.map(async (x) => {
-      const gear = await this.prisma.item.upsert({
-        where: {
-          name: x.name,
-        },
-        create: {
-          name: x.name,
-          image_uri: x.imageUri,
-          tier: x.tier,
-          set_name: x.setName,
-          grade: x.grade,
-        },
-        update: {
-          image_uri: x.imageUri,
-          tier: x.tier,
-          set_name: x.setName,
-          grade: x.grade,
-        },
-      });
 
-      await this.prisma.character_gear.upsert({
-        where: {
-          character_id_slot: {
+    await Promise.all(
+      dt.gearList.map(async (x) => {
+        const gear = await this.prisma.item.upsert({
+          where: {
+            name: x.name,
+          },
+          create: {
+            name: x.name,
+            image_uri: x.imageUri,
+            tier: x.tier,
+            set_name: x.setName,
+            grade: x.grade,
+          },
+          update: {
+            image_uri: x.imageUri,
+            tier: x.tier,
+            set_name: x.setName,
+            grade: x.grade,
+          },
+        });
+
+        await this.prisma.character_gear.upsert({
+          where: {
+            character_id_slot: {
+              character_id: character.id,
+              slot: x.slot,
+            },
+          },
+          create: {
+            item_id: gear.id,
             character_id: character.id,
             slot: x.slot,
+            honing: x.honing,
+            quality: x.quality,
+            base_effect: JSON.stringify(x.baseEffect),
+            additional_effect: JSON.stringify(x.additionalEffect),
+            use_yn: 'Y',
           },
-        },
-        create: {
-          item_id: gear.id,
-          character_id: character.id,
-          slot: x.slot,
-          honing: x.honing,
-          quality: x.quality,
-          base_effect: JSON.stringify(x.baseEffect),
-          additional_effect: JSON.stringify(x.additionalEffect),
-          use_yn: 'Y',
-        },
-        update: {
-          item_id: gear.id,
-          honing: x.honing,
-          quality: x.quality,
-          base_effect: JSON.stringify(x.baseEffect),
-          additional_effect: JSON.stringify(x.additionalEffect),
-          use_yn: 'Y',
-        },
-      });
-    });
+          update: {
+            item_id: gear.id,
+            honing: x.honing,
+            quality: x.quality,
+            base_effect: JSON.stringify(x.baseEffect),
+            additional_effect: JSON.stringify(x.additionalEffect),
+            use_yn: 'Y',
+          },
+        });
+      }),
+    );
 
     // 5.악세사리
     await this.prisma.character_accessory.updateMany({
