@@ -385,7 +385,7 @@ export class CharacterService {
 
     if (c) {
       const min = (new Date().getTime() - c.upd_date.getTime()) / 1000 / 60;
-      if (min <= 3) {
+      if (min <= 5) {
         return false;
       }
     }
