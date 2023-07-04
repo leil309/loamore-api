@@ -7,8 +7,8 @@ import { CharacterRankOutput } from './dto/character.output';
 import { FindCursorCharacterRankingArgs } from './dto/characterRanking.args';
 import { use_yn } from '../@generated/prisma/use-yn.enum';
 import * as cheerio from 'cheerio';
-import * as https from "https";
-import axios from "axios";
+import * as https from 'https';
+import axios from 'axios';
 
 @Injectable()
 export class CharacterService {
@@ -222,25 +222,31 @@ export class CharacterService {
           accessoryList: undefined,
           avatarList: undefined,
           cardList: undefined,
-          class: "",
+          class: '',
           elixir: undefined,
           engraving: undefined,
           gearList: undefined,
           gemList: undefined,
-          guildName: "",
-          imageUri: "",
+          guildName: '',
+          imageUri: '',
           itemLevel: undefined,
           level: undefined,
           ownUserName: undefined,
-          serverName: "",
+          serverName: '',
           skillList: undefined,
           stats: {
-            basic: {attack_power: 0, max_health: 0},
-            battle: {critical: 0, domination: 0, endurance: 0, expertise: 0, specialization: 0, swiftness: 0},
-            virtues: {charisma: 0, courage: 0, kindness: 0, wisdom: 0}
+            basic: { attack_power: 0, max_health: 0 },
+            battle: {
+              critical: 0,
+              domination: 0,
+              endurance: 0,
+              expertise: 0,
+              specialization: 0,
+              swiftness: 0,
+            },
+            virtues: { charisma: 0, courage: 0, kindness: 0, wisdom: 0 },
           },
-          userName: ""
-
+          userName: '',
         };
         // 레벨
         character.level = $('.profile-character-info__lv')
@@ -363,10 +369,12 @@ export class CharacterService {
                 : [],
               additionalEffect: additionalEffectRegex.exec(data)
                 ? additionalEffectRegex
-                  .exec(data)[1]
-                  .split(/(?<=\d)(?=[가-힣])/)
+                    .exec(data)[1]
+                    .split(/(?<=\d)(?=[가-힣])/)
                 : [],
-              grade: iconGrade.exec(data) ? parseInt(iconGrade.exec(data)[1]) : 0
+              grade: iconGrade.exec(data)
+                ? parseInt(iconGrade.exec(data)[1])
+                : 0,
             };
             return gear;
           });
@@ -949,19 +957,9 @@ export class CharacterService {
       },
     });
 
-    const engravingAnd = myCharacter.character_engraving
-      .filter((x) => x.engraving.class_yn === class_yn.Y)
-      .map((y) => {
-        return {
-          character_engraving: {
-            some: { level: y.level, engraving_id: y.engraving_id },
-          },
-        };
-      });
     const classEngravingId = myCharacter.character_engraving
       .filter((x) => x.engraving.class_yn === class_yn.Y)
       .map((y) => y.engraving_id);
-
 
     const classId = await this.prisma.classJob.findFirst({
       where: {
@@ -977,29 +975,29 @@ export class CharacterService {
         },
       },
     });
-    const noneClassEngId = classEngraving.map(x => x.id)
+    const noneClassEngId = classEngraving.map((x) => x.id);
 
     const noneEngAnd: any[] =
-      noneClassEngId && noneClassEngId.length > 0 ?
-        noneClassEngId.map(x => {
-          return {
-            character_engraving: { none: {engraving_id: x} }
-          }
-        }) : []
+      noneClassEngId && noneClassEngId.length > 0
+        ? noneClassEngId.map((x) => {
+            return {
+              character_engraving: { none: { engraving_id: x } },
+            };
+          })
+        : [];
 
     const someEngAnd: any[] =
-      classEngravingId && classEngravingId.length > 0 ?
-        classEngravingId.map(x => {
-          return {
-                character_engraving: { some: {engraving_id: x} }
-              }
-            }) : []
+      classEngravingId && classEngravingId.length > 0
+        ? classEngravingId.map((x) => {
+            return {
+              character_engraving: { some: { engraving_id: x } },
+            };
+          })
+        : [];
 
-    const engAnd =
-      {
-        AND: noneEngAnd.concat(someEngAnd)
-      }
-
+    const engAnd = {
+      AND: noneEngAnd.concat(someEngAnd),
+    };
 
     const topRanker = await this.prisma.character.findMany({
       where: {
@@ -1077,49 +1075,124 @@ export class CharacterService {
       },
     });
 
-    const engravingAnd = myCharacter.character_engraving
-      .filter((x) => x.engraving.class_yn === class_yn.Y)
-      .map((y) => {
-        return {
-          character_engraving: {
-            some: { level: y.level, engraving_id: y.engraving_id },
-          },
-        };
-      });
-    const noneId = myCharacter.character_engraving
+    const classEngravingId = myCharacter.character_engraving
       .filter((x) => x.engraving.class_yn === class_yn.Y)
       .map((y) => y.engraving_id);
 
+    const classId = await this.prisma.classJob.findFirst({
+      where: {
+        name: myCharacter.class,
+      },
+    });
+    const classEngraving = await this.prisma.engraving.findMany({
+      where: {
+        class_id: classId.id,
+        class_yn: class_yn.Y,
+        id: {
+          notIn: classEngravingId,
+        },
+      },
+    });
+    const noneClassEngId = classEngraving.map((x) => x.id);
+
+    const noneEngAnd: any[] =
+      noneClassEngId && noneClassEngId.length > 0
+        ? noneClassEngId.map((x) => {
+            return {
+              character_engraving: { none: { engraving_id: x } },
+            };
+          })
+        : [];
+
+    const someEngAnd: any[] =
+      classEngravingId && classEngravingId.length > 0
+        ? classEngravingId.map((x) => {
+            return {
+              character_engraving: { some: { engraving_id: x } },
+            };
+          })
+        : [];
+
+    const engAnd = {
+      AND: noneEngAnd.concat(someEngAnd),
+    };
+
     const topRanker = await this.prisma.character.findMany({
       where: {
-        AND: engravingAnd,
+        ...engAnd,
         class: myCharacter.class,
       },
       select: {
         name: true,
-        character_engraving: {
-          select: {
-            level: true,
-            engraving: {
-              select: {
-                id: true,
-                name: true,
-                class_yn: true,
-                image_uri: true,
-              },
-            },
-          },
-          where: {
-            use_yn: use_yn.Y,
-            engraving_id: {
-              notIn: noneId,
-            },
-          },
-        },
+        specialization: true,
+        swiftness: true,
+        critical: true,
+        endurance: true,
+        domination: true,
+        expertise: true,
       },
       orderBy: [{ item_level: SortOrder.desc }],
       take: 100,
     });
+
+    const ave = topRanker.map((x) => {
+      const battleStats = [
+        { value: x.critical, name: '치' },
+        { value: x.specialization, name: '특' },
+        { value: x.domination, name: '제' },
+        { value: x.swiftness, name: '신' },
+        { value: x.endurance, name: '인' },
+        { value: x.expertise, name: '숙' },
+      ];
+
+      const mainStats = battleStats
+        .filter((x) => x.value >= 150)
+        .sort((a, b) => {
+          return b.value - a.value;
+        });
+
+      const name = mainStats.map((y) => y.name).join('');
+      const values = mainStats.map((y) => {
+        return {
+          name: y.name,
+          value: y.value,
+        };
+      });
+      return {
+        name,
+        values,
+      };
+    });
+
+    const result = [];
+    const resultMap = {};
+
+    ave.forEach((item) => {
+      const name = item.name;
+      const stats = item.values;
+
+      if (!resultMap[name]) {
+        resultMap[name] = { name, stats: [] };
+        result.push(resultMap[name]);
+      }
+
+      stats.forEach((value) => {
+        const valueName = value.name;
+        const valueNumber = value.value;
+
+        const existingValue = resultMap[name].stats.find(
+          (v) => v.name === valueName,
+        );
+
+        if (existingValue) {
+          existingValue.value = (existingValue.value + valueNumber) / 2;
+        } else {
+          resultMap[name].stats.push({ name: valueName, value: valueNumber });
+        }
+      });
+    });
+
+    return result;
   }
 
   async findAverageGem(name: string) {
@@ -1228,4 +1301,31 @@ export class CharacterService {
 
     return engravings;
   };
+}
+
+function groupAndCalculateAverage(data) {
+  const groupedData = {};
+
+  data.forEach((item) => {
+    const name = item.name;
+    const values = item.values;
+
+    if (!groupedData[name]) {
+      groupedData[name] = {
+        name: name,
+        values: [],
+      };
+    }
+
+    groupedData[name].values.push(...values);
+  });
+
+  for (const name in groupedData) {
+    const values = groupedData[name].values;
+    const sum = values.reduce((acc, curr) => acc + curr, 0);
+    const average = sum / values.length;
+    groupedData[name].values = [average];
+  }
+
+  return Object.values(groupedData);
 }

@@ -5,6 +5,7 @@ import { CharacterRankOutput } from './dto/character.output';
 import { FindCursorCharacterRankingArgs } from './dto/characterRanking.args';
 import { ICharacter } from '../common/interface';
 import { AverageEngravingOutput } from './dto/averageEngraving.output';
+import { AverageStatsOutput } from './dto/averageStats.output';
 
 @Resolver()
 export class CharacterResolver {
@@ -42,22 +43,26 @@ export class CharacterResolver {
     return this.characterService.findAverageEngraving(name);
   }
 
-  @Query(() => [AverageEngravingOutput], {
+  @Query(() => [AverageStatsOutput], {
     description: '평균 스탯 정보 조회',
   })
-  async findAverageStats(
-    @Args('name', { type: () => String }) name: string,
-  ) {
+  async findAverageStats(@Args('name', { type: () => String }) name: string) {
     return this.characterService.findAverageStats(name);
   }
 
+  @Query(() => [AverageEngravingOutput], {
+    description: '캐릭터 강제 업뎃',
+  })
+  async updateForceCharacter(
+    @Args('name', { type: () => String }) name: string,
+  ) {
+    return this.characterService.upsertJs(name);
+  }
 
   @Query(() => [AverageEngravingOutput], {
     description: '평균 보석 정보 조회',
   })
-  async jsjsjs(
-    @Args('name', { type: () => String }) name: string,
-  ) {
+  async findAverageGems(@Args('name', { type: () => String }) name: string) {
     return this.characterService.upsertJs(name);
   }
 }
