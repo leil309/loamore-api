@@ -1219,7 +1219,7 @@ export class CharacterService {
     return result;
   }
 
-  async findAverageGem(name: string) {
+  async findAverageWeapon(name: string) {
     const myCharacter = await this.prisma.character.findFirst({
       where: { name: name },
       include: {
@@ -1230,6 +1230,36 @@ export class CharacterService {
         },
       },
     });
+    const topRanker = await this.prisma.character.findMany({
+      where: {
+        class: myCharacter.class,
+        AND: {
+          character_gear: {
+            none: {
+              item: {
+                grade: {
+                  equals: 7,
+                },
+              },
+            },
+          },
+        },
+      },
+      select: {
+        name: true,
+        character_gear: true,
+      },
+      orderBy: [{ item_level: SortOrder.desc }],
+      take: 100,
+    });
+
+    return (
+      (
+        topRanker
+          ?.map((x) => x.character_gear[0].quality)
+          ?.reduce((acc, cur) => acc + cur) / topRanker.length
+      )?.toFixed(0) || '0'
+    );
   }
 
   basicStats = ($) => {

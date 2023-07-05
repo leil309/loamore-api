@@ -59,10 +59,10 @@ export class CharacterResolver {
     return this.characterService.upsertJs(name);
   }
 
-  @Query(() => [AverageEngravingOutput], {
-    description: '평균 보석 정보 조회',
+  @Query(() => String, {
+    description: '평균 무기품질 조회',
   })
-  async findAverageGems(@Args('name', { type: () => String }) name: string) {
-    return this.characterService.upsertJs(name);
+  async findAverageWeapon(@Args('name', { type: () => String }) name: string) {
+    return this.characterService.findAverageWeapon(name);
   }
 }
