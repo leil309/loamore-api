@@ -1137,12 +1137,12 @@ export class CharacterService {
 
     const ave = topRanker.map((x) => {
       const battleStats = [
-        { value: x.critical, name: '치' },
-        { value: x.specialization, name: '특' },
-        { value: x.domination, name: '제' },
-        { value: x.swiftness, name: '신' },
-        { value: x.endurance, name: '인' },
-        { value: x.expertise, name: '숙' },
+        { value: x.critical, name: '치명' },
+        { value: x.specialization, name: '특화' },
+        { value: x.domination, name: '제압' },
+        { value: x.swiftness, name: '신속' },
+        { value: x.endurance, name: '인내' },
+        { value: x.expertise, name: '숙련' },
       ];
 
       const mainStats = battleStats
@@ -1164,10 +1164,34 @@ export class CharacterService {
       };
     });
 
+    // 이름별 사용 횟수를 저장할 객체
+    const nameCount = {};
+
+    // 가장 많이 사용되는 이름 찾기
+    ave.forEach((item) => {
+      const name = item.name;
+      nameCount[name] = (nameCount[name] || 0) + 1;
+    });
+
+    // 가장 많이 사용된 이름 찾기
+    let mostUsedName = '';
+    let maxCount = 0;
+    Object.entries(nameCount).forEach(([name, count]) => {
+      if (count > maxCount) {
+        mostUsedName = name;
+        if (typeof count === 'number') {
+          maxCount = count;
+        }
+      }
+    });
+
+    // 가장 많이 사용된 이름을 제외한 배열 필터링
+    const filteredAve = ave.filter((item) => item.name === mostUsedName);
+
     const result = [];
     const resultMap = {};
 
-    ave.forEach((item) => {
+    filteredAve.forEach((item) => {
       const name = item.name;
       const stats = item.values;
 
