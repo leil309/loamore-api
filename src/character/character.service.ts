@@ -218,7 +218,7 @@ export class CharacterService {
       .then((response) => response.data)
       .then((html) => {
         const $ = cheerio.load(html);
-        let character: ICharacter = {
+        const character: ICharacter = {
           accessoryList: undefined,
           avatarList: undefined,
           cardList: undefined,
@@ -268,7 +268,7 @@ export class CharacterService {
 
         // 보유 캐릭터 목록
         let count = 0;
-        let temp = [];
+        const temp = [];
         $('ul.profile-character-list__char > li > span > button').each(
           function (index, item) {
             temp[count] = $(this)
@@ -335,7 +335,7 @@ export class CharacterService {
             const setNameMatch = setNameRegex.exec(data);
             const setName = setNameMatch ? setNameMatch[1] : '';
 
-            let setEffect = [];
+            const setEffect = [];
             let setEffectMatch;
             const imageMatch = imageUriRegex.exec(data);
             while ((setEffectMatch = setEffectRegex.exec(data)) !== null) {
@@ -346,7 +346,7 @@ export class CharacterService {
               });
             }
 
-            let gear = {
+            const gear = {
               name: itemNameRegex.exec(data)[2].trim(),
               honing: itemNameRegex.exec(data)[1]
                 ? parseInt(itemNameRegex.exec(data)[1])
