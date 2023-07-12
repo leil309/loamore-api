@@ -1,17 +1,18 @@
 import { Resolver, Query, Args, Int, Mutation } from '@nestjs/graphql';
 import { CharacterService } from './character.service';
 import { character } from '../@generated/character/character.model';
-import { CharacterRankOutput } from './dto/character.output';
+import { CharacterRankOutput } from './dto/characterRanking.output';
 import { FindCursorCharacterRankingArgs } from './dto/characterRanking.args';
 import { ICharacter } from '../common/interface';
 import { AverageEngravingOutput } from './dto/averageEngraving.output';
 import { AverageStatsOutput } from './dto/averageStats.output';
+import { CharacterOutput } from './dto/character.output';
 
 @Resolver()
 export class CharacterResolver {
   constructor(private readonly characterService: CharacterService) {}
 
-  @Query(() => character, {
+  @Query(() => CharacterOutput, {
     description: 'character 빠른 조회',
   })
   findCharacter(@Args('name', { type: () => String }) name: string) {
@@ -59,7 +60,7 @@ export class CharacterResolver {
     return this.characterService.upsertJs(name);
   }
 
-  @Query(() => String, {
+  @Query(() => Number, {
     description: '평균 무기품질 조회',
   })
   async findAverageWeapon(@Args('name', { type: () => String }) name: string) {

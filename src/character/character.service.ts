@@ -3,7 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ICharacter } from '../common/interface';
 import { class_yn } from '../@generated/prisma/class-yn.enum';
 import { SortOrder } from '../@generated/prisma/sort-order.enum';
-import { CharacterRankOutput } from './dto/character.output';
+import { CharacterRankOutput } from './dto/characterRanking.output';
 import { FindCursorCharacterRankingArgs } from './dto/characterRanking.args';
 import { use_yn } from '../@generated/prisma/use-yn.enum';
 import * as cheerio from 'cheerio';
@@ -124,7 +124,7 @@ export class CharacterService {
     return result;
   }
   async findCharacter(name: string) {
-    return this.prisma.character.findFirst({
+    const character = await this.prisma.character.findFirst({
       include: {
         character_accessory: {
           where: {
@@ -188,6 +188,9 @@ export class CharacterService {
         name: name,
       },
     });
+    return {
+      data: character,
+    };
   }
 
   async upsertJs(name: string) {
@@ -1254,11 +1257,11 @@ export class CharacterService {
     });
 
     return (
-      (
+      Number(
         topRanker
           ?.map((x) => x.character_gear[0].quality)
-          ?.reduce((acc, cur) => acc + cur) / topRanker.length
-      )?.toFixed(0) || '0'
+          ?.reduce((acc, cur) => acc + cur) / topRanker.length,
+      )?.toFixed(0) || 0
     );
   }
 

@@ -1,37 +1,9 @@
-import { Field, Float, Int, ObjectType } from '@nestjs/graphql';
-import { GraphQLBigInt, GraphQLDateTime } from 'graphql-scalars';
+import { Field, ObjectType } from '@nestjs/graphql';
+import { GraphQLBigInt } from 'graphql-scalars';
+import { character } from '../../@generated/character/character.model';
+
 @ObjectType()
-export class CharacterRankOutput {
-  @Field(() => GraphQLBigInt, { nullable: false })
-  id!: bigint;
-
-  @Field(() => String, { nullable: false })
-  name!: string;
-
-  @Field(() => String, { nullable: false })
-  className!: string;
-
-  @Field(() => Float, { nullable: false })
-  itemLevel!: number;
-
-  @Field(() => String, { nullable: true })
-  guildName!: string | null;
-
-  @Field(() => String, { nullable: false })
-  serverName!: string;
-
-  @Field(() => String, { nullable: false })
-  imageUri!: string;
-
-  @Field(() => [String], { nullable: true })
-  setItem?: Array<string>;
-
-  @Field(() => [String], { nullable: true })
-  classEngraving?: Array<string>;
-
-  @Field(() => GraphQLDateTime, { nullable: false })
-  insDate!: Date;
-
-  @Field(() => GraphQLDateTime, { nullable: false })
-  updDate!: Date;
+export class CharacterOutput {
+  @Field(() => character, { nullable: true })
+  data: character;
 }
