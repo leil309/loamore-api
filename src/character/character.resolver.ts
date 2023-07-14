@@ -26,7 +26,7 @@ export class CharacterResolver {
     return this.characterService.findCharacterRanking(args);
   }
 
-  @Mutation(() => character, {
+  @Mutation(() => CharacterOutput, {
     description: 'character 최신정보 조회',
   })
   async upsertCharacter(@Args('args', { type: () => String }) args: string) {
