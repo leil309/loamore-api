@@ -57,7 +57,7 @@ model character_accessory {
   item_id           BigInt
   item              item      @relation(fields: [item_id], references: [id])
   slot              Int       @db.TinyInt
-  quality           Int?      @db.TinyInt
+  quality           Int       @db.TinyInt
   base_effect       String?   @db.VarChar(100)
   additional_effect String?   @db.VarChar(100)
   bracelet_effect   String?   @db.VarChar(300)

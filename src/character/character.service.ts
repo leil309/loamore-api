@@ -456,26 +456,26 @@ export class CharacterService {
         use_yn: 'N',
       },
     });
-    // await this.prisma.$transaction(
-    //   dt.gemList.map((x) =>
-    //     this.prisma.skill.upsert({
-    //       where: {
-    //         name_class: {
-    //           name: x.skill,
-    //           class: character.class,
-    //         },
-    //       },
-    //       create: {
-    //         name: x.skill,
-    //         class: x.class,
-    //         image_uri: x.skillIcon,
-    //       },
-    //       update: {
-    //         image_uri: x.skillIcon,
-    //       },
-    //     }),
-    //   ),
-    // );
+    await this.prisma.$transaction(
+      dt.gemList.map((x) =>
+        this.prisma.skill.upsert({
+          where: {
+            name_class: {
+              name: x.skill,
+              class: character.class,
+            },
+          },
+          create: {
+            name: x.skill,
+            class: x.class,
+            image_uri: x.skillIcon,
+          },
+          update: {
+            image_uri: x.skillIcon,
+          },
+        }),
+      ),
+    );
 
     const upsertSkill = async (skillInfo) => {
       const skill = await this.prisma.skill.upsert({

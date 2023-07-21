@@ -32,7 +32,7 @@ export class CharacterResolver {
   async upsertCharacter(@Args('args', { type: () => String }) args: string) {
     const character: ICharacter = JSON.parse(args);
     await this.characterService.upsertCharacter(character);
-    return this.characterService.findCharacter(character.userName);
+    return await this.characterService.findCharacter(character.userName);
   }
 
   @Query(() => [AverageEngravingOutput], {
