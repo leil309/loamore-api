@@ -432,6 +432,25 @@ export class CharacterService {
       },
     });
 
+    const characterClass = await this.prisma.classJob.findFirst({
+      where: {
+        name: dt.class,
+      },
+    });
+    if (characterClass === null) {
+      await this.prisma.classJob.upsert({
+        where: {
+          name: dt.class,
+        },
+        create: {
+          name: dt.class,
+        },
+        update: {
+          name: dt.class,
+        },
+      });
+    }
+
     // 2.스킬
     await this.prisma.character_skill.updateMany({
       where: {
