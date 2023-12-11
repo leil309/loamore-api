@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { ICharacter, IStats, ITendencies } from '../common/interface';
+import { ICharacter, IGear, IStats, ITendencies } from '../common/interface';
 import { class_yn } from '../@generated/prisma/class-yn.enum';
 import { SortOrder } from '../@generated/prisma/sort-order.enum';
 import { CharacterRankOutput } from './dto/characterRanking.output';
@@ -197,22 +197,22 @@ export class CharacterService {
   }
 
   async update(characterName: string) {
-    const characterArmories = new CharacterArmoriesOutput();
+    const character = await this.prisma.character.findFirst({
+      where: {
+        name: characterName,
+      },
+    });
 
-    // const character = await this.prisma.character.findFirst({
-    //   where: {
-    //     name: characterName,
-    //   },
-    // });
+    if (
+      character &&
+      (new Date().getTime() - character.upd_date.getTime()) / 1000 / 60 < 1
+    ) {
+      return character;
+    }
 
-    // if (
-    //   character &&
-    //   (new Date().getTime() - character.upd_date.getTime()) / 1000 / 60 < 1
-    // ) {
-    //   return character;
-    // }
-
-    const characterProfile: CharacterArmoriesOutput = await axios
+    const regTags = /<[^>]*>?/g;
+    const regSpaces = /\r\n/g;
+    const characterArmories: CharacterArmoriesOutput = await axios
       .get(
         `${process.env.LOSTARK_API_URL}/armories/characters/${characterName}`,
         {
@@ -224,88 +224,77 @@ export class CharacterService {
       )
       .then((res) => res.data);
 
-    const statsList: IStats = this.toStatsObject(
-      characterProfile.ArmoryProfile.Stats,
+    // 1. 캐릭터 프로필 업뎃
+    const statsList: IStats = this.getStatList(
+      characterArmories.ArmoryProfile.Stats,
       (x) => StatsNameToType(x['Type']),
       (x) => parseInt(x['Value']),
     );
-    const tendenciesList: ITendencies = this.toStatsObject(
-      characterProfile.ArmoryProfile.Tendencies,
+    const tendenciesList: ITendencies = this.getStatList(
+      characterArmories.ArmoryProfile.Tendencies,
       (x) => TendenciesNameToType(x['Type']),
       (x) => x['Point'],
     );
-
-    // 1. 캐릭터 프로필 업뎃
-    const ProfileUpsert = this.getProfileUpsert(
+    await this.getProfileUpsert(
       characterName,
-      characterProfile.ArmoryProfile,
+      characterArmories.ArmoryProfile,
       statsList,
       tendenciesList,
     );
 
     // 2. 캐릭터 장비 업뎃
-    // await this.prisma.character_gear.updateMany({
-    //   where: {
-    //     character_id: character.id,
-    //   },
-    //   data: {
-    //     use_yn: 'N',
-    //   },
-    // });
+    const gearList = this.getGearList(characterArmories, regTags, regSpaces);
+    await this.setCharacterGear(character.id, gearList);
 
-    // const GearUpsert = await Promise.all(
-    //   characterProfile.ArmoryEquipment.map(async (x) => {
-    //     const gear = await this.prisma.item.upsert({
-    //       where: {
-    //         name: x['Name'],
-    //       },
-    //       create: {
-    //         name: x.name,
-    //         image_uri: x.imageUri,
-    //         tier: x.tier,
-    //         set_name: x.setName,
-    //         grade: x.grade,
-    //       },
-    //       update: {
-    //         image_uri: x.imageUri,
-    //         tier: x.tier,
-    //         set_name: x.setName,
-    //         grade: x.grade,
-    //       },
-    //     });
-    //
-    //     await this.prisma.character_gear.upsert({
-    //       where: {
-    //         character_id_slot: {
-    //           character_id: character.id,
-    //           slot: x.slot,
-    //         },
-    //       },
-    //       create: {
-    //         item_id: gear.id,
-    //         character_id: character.id,
-    //         slot: x.slot,
-    //         honing: x.honing,
-    //         quality: x.quality,
-    //         base_effect: JSON.stringify(x.baseEffect),
-    //         additional_effect: JSON.stringify(x.additionalEffect),
-    //         use_yn: 'Y',
-    //       },
-    //       update: {
-    //         item_id: gear.id,
-    //         honing: x.honing,
-    //         quality: x.quality,
-    //         base_effect: JSON.stringify(x.baseEffect),
-    //         additional_effect: JSON.stringify(x.additionalEffect),
-    //         use_yn: 'Y',
-    //       },
-    //     });
-    //   }),
-    // );
-    return characterProfile;
+    return await this.prisma.character.findFirst({
+      where: {
+        name: characterName,
+      },
+    });
   }
 
-  private toStatsObject(
+  private getGearList(
+    characterArmories: CharacterArmoriesOutput,
+    regTags: RegExp,
+    regSpaces: RegExp,
+  ) {
+    return characterArmories.ArmoryEquipment.filter((ft) =>
+      ['무기', '투구', '상의', '하의', '장갑', '어깨'].includes(ft.Type),
+    ).map((x, index) => {
+      const data = x.Tooltip.replace(regTags, '')
+        .replace(regSpaces, '')
+        .replace(/\s\s/g, '');
+
+      const nameMatch = x.Name.replace(/\+\d+/, '').trim();
+      const honingMatch = x.Name.match(/\d+/);
+      const levelMatch = data.match(/"leftStr2": "아이템 레벨 (\d+)/);
+      const qualityMatch = data.match(/"qualityValue": (\d+)/);
+      const tierMatch = data.match(/\(티어 (\d+)\)/);
+      const setNameMatch = data.match(
+        /"SetItemGroup","value": {"firstMsg": "([가-힣\s]+)"/,
+      );
+      const gradeMatch = data.match(/"iconGrade": (\d)/);
+
+      const gear: IGear = {
+        name: nameMatch,
+        honing: honingMatch ? parseInt(honingMatch[0]) : 0,
+        imageUri: x.Icon.replace('https://cdn-lostark.game.onstove.com/', ''),
+        slot: index,
+        quality: qualityMatch ? parseInt(qualityMatch[1]) : -1,
+        level: levelMatch ? parseInt(levelMatch[1]) : -1,
+        tier: tierMatch ? parseInt(tierMatch[1]) : -1,
+        setName: setNameMatch ? setNameMatch[1] : '',
+        setEffect: [''], //테이블 변경해야함
+        baseEffect: [], //
+        additionalEffect: [], //
+        grade: gradeMatch ? parseInt(gradeMatch[1]) : 0,
+      };
+
+      return gear;
+    });
+  }
+
+  private getStatList(
     arr: any[],
     keyExtractor: (x: any) => string,
     valueExtractor: (x: any) => any,
@@ -320,13 +309,73 @@ export class CharacterService {
     return null;
   }
 
-  private getProfileUpsert(
+  private async setCharacterGear(id: bigint, gearList: IGear[]) {
+    await this.prisma.character_gear.updateMany({
+      where: {
+        character_id: id,
+      },
+      data: {
+        use_yn: 'N',
+      },
+    });
+    await Promise.all(
+      gearList.map(async (x) => {
+        const gear = await this.prisma.item.upsert({
+          where: {
+            name: x.name,
+          },
+          create: {
+            name: x.name,
+            image_uri: x.imageUri,
+            tier: x.tier,
+            set_name: x.setName,
+            grade: x.grade,
+          },
+          update: {
+            image_uri: x.imageUri,
+            tier: x.tier,
+            set_name: x.setName,
+            grade: x.grade,
+          },
+        });
+
+        await this.prisma.character_gear.upsert({
+          where: {
+            character_id_slot: {
+              character_id: id,
+              slot: x.slot,
+            },
+          },
+          create: {
+            item_id: gear.id,
+            character_id: id,
+            slot: x.slot,
+            honing: x.honing,
+            quality: x.quality,
+            base_effect: JSON.stringify(x.baseEffect),
+            additional_effect: JSON.stringify(x.additionalEffect),
+            use_yn: 'Y',
+          },
+          update: {
+            item_id: gear.id,
+            honing: x.honing,
+            quality: x.quality,
+            base_effect: JSON.stringify(x.baseEffect),
+            additional_effect: JSON.stringify(x.additionalEffect),
+            use_yn: 'Y',
+          },
+        });
+      }),
+    );
+  }
+
+  private async getProfileUpsert(
     characterName: string,
     characterProfile: ArmoryProfileModel,
     statsList: IStats,
     tendenciesList: ITendencies,
   ) {
-    return this.prisma.character.upsert({
+    return await this.prisma.character.upsert({
       where: {
         name: characterName,
       },

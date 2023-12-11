@@ -53,7 +53,7 @@ export class CharacterResolver {
     return this.characterService.findAverageStats(name);
   }
 
-  @Query(() => CharacterArmoriesOutput, {
+  @Query(() => character, {
     description: '캐릭터 업데이트 및 조회',
   })
   async updateForceCharacter(
