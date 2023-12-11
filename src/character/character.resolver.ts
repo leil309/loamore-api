@@ -7,6 +7,8 @@ import { ICharacter } from '../common/interface';
 import { AverageEngravingOutput } from './dto/averageEngraving.output';
 import { AverageStatsOutput } from './dto/averageStats.output';
 import { CharacterOutput } from './dto/character.output';
+import { ArmoryProfileModel } from 'src/character/model/armory-profile.model';
+import { CharacterArmoriesOutput } from 'src/character/dto/character-armories.output';
 
 @Resolver()
 export class CharacterResolver {
@@ -51,13 +53,13 @@ export class CharacterResolver {
     return this.characterService.findAverageStats(name);
   }
 
-  @Query(() => [AverageEngravingOutput], {
-    description: '캐릭터 강제 업뎃',
+  @Query(() => CharacterArmoriesOutput, {
+    description: '캐릭터 업데이트 및 조회',
   })
   async updateForceCharacter(
     @Args('name', { type: () => String }) name: string,
   ) {
-    return this.characterService.upsertJs(name);
+    return this.characterService.update(name);
   }
 
   @Query(() => Number, {

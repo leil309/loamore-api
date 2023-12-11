@@ -1,14 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { ICharacter } from '../common/interface';
+import { ICharacter, IStats, ITendencies } from '../common/interface';
 import { class_yn } from '../@generated/prisma/class-yn.enum';
 import { SortOrder } from '../@generated/prisma/sort-order.enum';
 import { CharacterRankOutput } from './dto/characterRanking.output';
 import { FindCursorCharacterRankingArgs } from './dto/characterRanking.args';
 import { use_yn } from '../@generated/prisma/use-yn.enum';
-import * as cheerio from 'cheerio';
-import * as https from 'https';
 import axios from 'axios';
+import * as process from 'process';
+import { ArmoryProfileModel } from 'src/character/model/armory-profile.model';
+import { StatsNameToType, TendenciesNameToType } from 'src/common/utils';
+import { CharacterArmoriesOutput } from 'src/character/dto/character-armories.output';
 
 @Injectable()
 export class CharacterService {
@@ -123,6 +125,7 @@ export class CharacterService {
     );
     return result;
   }
+
   async findCharacter(name: string) {
     const character = await this.prisma.character.findFirst({
       include: {
@@ -193,198 +196,163 @@ export class CharacterService {
     };
   }
 
-  async upsertJs(name: string) {
-    const c = await this.prisma.character.findFirst({
-      where: {
-        name: name,
-      },
-    });
+  async update(characterName: string) {
+    const characterArmories = new CharacterArmoriesOutput();
 
-    if (c) {
-      const min = (new Date().getTime() - c.upd_date.getTime()) / 1000 / 60;
-      if (min < 1) {
-        return true;
+    // const character = await this.prisma.character.findFirst({
+    //   where: {
+    //     name: characterName,
+    //   },
+    // });
+
+    // if (
+    //   character &&
+    //   (new Date().getTime() - character.upd_date.getTime()) / 1000 / 60 < 1
+    // ) {
+    //   return character;
+    // }
+
+    const characterProfile: CharacterArmoriesOutput = await axios
+      .get(
+        `${process.env.LOSTARK_API_URL}/armories/characters/${characterName}`,
+        {
+          headers: {
+            Accept: 'application/json',
+            Authorization: process.env.LOSTARK_API_JWT,
+          },
+        },
+      )
+      .then((res) => res.data);
+
+    const statsList: IStats = this.toStatsObject(
+      characterProfile.ArmoryProfile.Stats,
+      (x) => StatsNameToType(x['Type']),
+      (x) => parseInt(x['Value']),
+    );
+    const tendenciesList: ITendencies = this.toStatsObject(
+      characterProfile.ArmoryProfile.Tendencies,
+      (x) => TendenciesNameToType(x['Type']),
+      (x) => x['Point'],
+    );
+
+    // 1. 캐릭터 프로필 업뎃
+    const ProfileUpsert = this.getProfileUpsert(
+      characterName,
+      characterProfile.ArmoryProfile,
+      statsList,
+      tendenciesList,
+    );
+
+    // 2. 캐릭터 장비 업뎃
+    // await this.prisma.character_gear.updateMany({
+    //   where: {
+    //     character_id: character.id,
+    //   },
+    //   data: {
+    //     use_yn: 'N',
+    //   },
+    // });
+
+    // const GearUpsert = await Promise.all(
+    //   characterProfile.ArmoryEquipment.map(async (x) => {
+    //     const gear = await this.prisma.item.upsert({
+    //       where: {
+    //         name: x['Name'],
+    //       },
+    //       create: {
+    //         name: x.name,
+    //         image_uri: x.imageUri,
+    //         tier: x.tier,
+    //         set_name: x.setName,
+    //         grade: x.grade,
+    //       },
+    //       update: {
+    //         image_uri: x.imageUri,
+    //         tier: x.tier,
+    //         set_name: x.setName,
+    //         grade: x.grade,
+    //       },
+    //     });
+    //
+    //     await this.prisma.character_gear.upsert({
+    //       where: {
+    //         character_id_slot: {
+    //           character_id: character.id,
+    //           slot: x.slot,
+    //         },
+    //       },
+    //       create: {
+    //         item_id: gear.id,
+    //         character_id: character.id,
+    //         slot: x.slot,
+    //         honing: x.honing,
+    //         quality: x.quality,
+    //         base_effect: JSON.stringify(x.baseEffect),
+    //         additional_effect: JSON.stringify(x.additionalEffect),
+    //         use_yn: 'Y',
+    //       },
+    //       update: {
+    //         item_id: gear.id,
+    //         honing: x.honing,
+    //         quality: x.quality,
+    //         base_effect: JSON.stringify(x.baseEffect),
+    //         additional_effect: JSON.stringify(x.additionalEffect),
+    //         use_yn: 'Y',
+    //       },
+    //     });
+    //   }),
+    // );
+    return characterProfile;
+  }
+
+  private toStatsObject(
+    arr: any[],
+    keyExtractor: (x: any) => string,
+    valueExtractor: (x: any) => any,
+  ): any {
+    if (arr) {
+      const obj = {};
+      for (const item of arr) {
+        obj[keyExtractor(item)] = valueExtractor(item);
       }
+      return obj;
     }
+    return null;
+  }
 
-    const agent = new https.Agent({
-      rejectUnauthorized: false,
-    });
-    const reg = /<[^>]*>?/g;
-    const dt = await axios(
-      `https://lostark.game.onstove.com/Profile/Character/${name}`,
-      {
-        method: 'get',
-        httpsAgent: agent,
+  private getProfileUpsert(
+    characterName: string,
+    characterProfile: ArmoryProfileModel,
+    statsList: IStats,
+    tendenciesList: ITendencies,
+  ) {
+    return this.prisma.character.upsert({
+      where: {
+        name: characterName,
       },
-    )
-      .then((response) => response.data)
-      .then((html) => {
-        const $ = cheerio.load(html);
-        const character: ICharacter = {
-          accessoryList: undefined,
-          avatarList: undefined,
-          cardList: undefined,
-          class: '',
-          elixir: undefined,
-          engraving: undefined,
-          gearList: undefined,
-          gemList: undefined,
-          guildName: '',
-          imageUri: '',
-          itemLevel: undefined,
-          level: undefined,
-          ownUserName: undefined,
-          serverName: '',
-          skillList: undefined,
-          stats: {
-            basic: { attack_power: 0, max_health: 0 },
-            battle: {
-              critical: 0,
-              domination: 0,
-              endurance: 0,
-              expertise: 0,
-              specialization: 0,
-              swiftness: 0,
-            },
-            virtues: { charisma: 0, courage: 0, kindness: 0, wisdom: 0 },
-          },
-          userName: '',
-        };
-        // 레벨
-        character.level = $('.profile-character-info__lv')
-          .text()
-          .replace('Lv.', '');
-        // 템렙
-        $('.level-info2__item > span').each(function (index, item) {
-          if (index === 1)
-            character.itemLevel = $(this).text().replace('Lv.', '');
-        });
-        // 기본스탯
-        character.stats.basic = this.basicStats($);
-        // 전투스탯
-        character.stats.battle = this.battleStats($);
-        // 성향
-        character.stats.virtues = this.virtues($);
-        // 각인
-        character.stats.engraving = this.engraving($);
-
-        // 보유 캐릭터 목록
-        let count = 0;
-        const temp = [];
-        $('ul.profile-character-list__char > li > span > button').each(
-          function (index, item) {
-            temp[count] = $(this)
-              .attr('onclick')
-              ?.split('/')[3]
-              .replace("'", '');
-            count = count + 1;
-          },
-        );
-        character.ownUserName = temp;
-        character.class = $(
-          '#lostark-wrapper > div > main > div > div.profile-character-info > img[src]',
-        ).attr().alt;
-        character.guildName = $(
-          '#lostark-wrapper > div > main > div > div.profile-ingame > div.profile-info > div.game-info > div.game-info__guild > span:nth-child(2)',
-        ).text();
-        character.serverName = $(
-          '#lostark-wrapper > div > main > div > div.profile-character-info > span.profile-character-info__server',
-        )
-          .text()
-          .replace('@', '');
-        character.imageUri = $(
-          '#profile-equipment > div.profile-equipment__character > img',
-        ).attr().src;
-
-        const script = $('#profile-ability > script')
-          .text()
-          .replace('$.Profile = ', '')
-          .replace(/\t/gi, '')
-          .replace(/\n/gi, '')
-          .replace(/\\n/gi, '')
-          .replace(/\\t/gi, '')
-          .replace(/;/gi, '');
-
-        const scriptJson = JSON.parse(script);
-        if (!scriptJson) {
-          return;
-        }
-
-        character.gearList = Object.entries(scriptJson.Equip)
-          .filter((obj) => !obj[0].match('Gem'))
-          .filter((obj) => {
-            const num = parseInt(obj[0].split('_')[1]);
-            return [0, 1, 2, 3, 4, 5].includes(num);
-          })
-          .map((obj: any, index: number) => {
-            const data: string = JSON.stringify(obj[1]).replace(reg, '');
-            // const setEffect = data.Element_009.value.Element_000.topStr
-
-            const itemNameRegex =
-              /"type":"NameTagBox","value":"\+?(\d+)?([^"]+)"/; // /"type":"NameTagBox","value":"\+(\d+)?([^"]+)"/
-            const itemLevelRegex = /"leftStr2":"아이템 레벨 (\d+)/;
-            const itemTierRegex = /\(티어 (\d+)\)/;
-            const qualityRegex = /"qualityValue":(\d+)/;
-            const baseEffectRegex = /"기본 효과","[^"]+":"([^"]+)"/;
-            const additionalEffectRegex = /"추가 효과","[^"]+":"([^"]+)"/;
-            const imageUriRegex = /"iconPath":"(.*?)"/;
-            const iconGrade = /"iconGrade":(\d)/;
-
-            const setNameRegex = /"topStr":"([가-힣\s]+)"},"Element_001"/;
-            const setEffectRegex =
-              /"bPoint":(true|false),"contentStr":"[^}]*?([^}]*?)}},"topStr":"(\d) 세트 효과/g;
-
-            const setNameMatch = setNameRegex.exec(data);
-            const setName = setNameMatch ? setNameMatch[1] : '';
-
-            const setEffect = [];
-            let setEffectMatch;
-            const imageMatch = imageUriRegex.exec(data);
-            while ((setEffectMatch = setEffectRegex.exec(data)) !== null) {
-              setEffect.push({
-                bPoint: setEffectMatch[1] === 'true',
-                piece: setEffectMatch[3],
-                effect: setEffectMatch[2],
-              });
-            }
-
-            const gear = {
-              name: itemNameRegex.exec(data)[2].trim(),
-              honing: itemNameRegex.exec(data)[1]
-                ? parseInt(itemNameRegex.exec(data)[1])
-                : 0,
-              imageUri: imageMatch ? imageMatch[1] : '',
-              slot: index,
-              quality: data.match(qualityRegex)
-                ? parseInt(data.match(qualityRegex)[1])
-                : -1,
-              level: data.match(itemLevelRegex)
-                ? parseInt(data.match(itemLevelRegex)[1])
-                : -1,
-              tier: data.match(itemTierRegex)
-                ? parseInt(data.match(itemTierRegex)[1])
-                : -1,
-              setName: setName,
-              setEffect: setEffect,
-              baseEffect: baseEffectRegex.exec(data)
-                ? baseEffectRegex.exec(data)[1].split(/(?<=\d)(?=[가-힣])/)
-                : [],
-              additionalEffect: additionalEffectRegex.exec(data)
-                ? additionalEffectRegex
-                    .exec(data)[1]
-                    .split(/(?<=\d)(?=[가-힣])/)
-                : [],
-              grade: iconGrade.exec(data)
-                ? parseInt(iconGrade.exec(data)[1])
-                : 0,
-            };
-            return gear;
-          });
-
-        return character;
-      });
-    return;
+      create: {
+        name: characterProfile.CharacterName,
+        class: characterProfile.CharacterClassName,
+        level: characterProfile.CharacterLevel,
+        item_level: parseFloat(characterProfile.ItemAvgLevel.replace(',', '')),
+        guild_name: characterProfile.GuildName,
+        server_name: characterProfile.ServerName,
+        image_uri: characterProfile.CharacterImage,
+        ...statsList,
+        ...tendenciesList,
+        ins_date: new Date(),
+        upd_date: new Date(),
+      },
+      update: {
+        level: characterProfile.CharacterLevel,
+        item_level: parseFloat(characterProfile.ItemAvgLevel.replace(',', '')),
+        guild_name: characterProfile.GuildName,
+        ...statsList,
+        ...tendenciesList,
+        image_uri: characterProfile.CharacterImage,
+        upd_date: new Date(),
+      },
+    });
   }
 
   async upsertCharacter(dt: ICharacter) {
@@ -1284,82 +1252,6 @@ export class CharacterService {
     );
   }
 
-  basicStats = ($) => {
-    return {
-      attack_power: parseInt(
-        $(
-          '#profile-ability > div.profile-ability-basic > ul > li:nth-child(1) > span:nth-child(2)',
-        )
-          .text()
-          .trim(),
-      ),
-      max_health: parseInt(
-        $(
-          '#profile-ability > div.profile-ability-basic > ul > li:nth-child(2) > span:nth-child(2)',
-        )
-          .text()
-          .trim(),
-      ),
-    };
-  };
-  battleStats = ($) => {
-    return {
-      critical: parseInt(
-        $(
-          '#profile-ability > div.profile-ability-battle > ul > li:nth-child(1) > span:nth-child(2)',
-        )
-          .text()
-          .trim(),
-      ),
-      specialization: parseInt(
-        $(
-          '#profile-ability > div.profile-ability-battle > ul > li:nth-child(2) > span:nth-child(2)',
-        )
-          .text()
-          .trim(),
-      ),
-      domination: parseInt(
-        $(
-          '#profile-ability > div.profile-ability-battle > ul > li:nth-child(3) > span:nth-child(2)',
-        )
-          .text()
-          .trim(),
-      ),
-      swiftness: parseInt(
-        $(
-          '#profile-ability > div.profile-ability-battle > ul > li:nth-child(4) > span:nth-child(2)',
-        )
-          .text()
-          .trim(),
-      ),
-      endurance: parseInt(
-        $(
-          '#profile-ability > div.profile-ability-battle > ul > li:nth-child(5) > span:nth-child(2)',
-        )
-          .text()
-          .trim(),
-      ),
-      expertise: parseInt(
-        $(
-          '#profile-ability > div.profile-ability-battle > ul > li:nth-child(6) > span:nth-child(2)',
-        )
-          .text()
-          .trim(),
-      ),
-    };
-  };
-  virtues = ($) => {
-    const data = $('body > script:nth-child(13)').text().trim();
-    const regex = /value:\s*\[(\d+),\s*(\d+),\s*(\d+),\s*(\d+)\]/;
-    const match = data.match(regex);
-
-    return {
-      wisdom: parseInt(match[1]),
-      courage: parseInt(match[2]),
-      charisma: parseInt(match[3]),
-      kindness: parseInt(match[4]),
-    };
-  };
   engraving = ($) => {
     const data = $(
       '#profile-ability > div.profile-ability-engrave > div > div.swiper-wrapper > ul > li > span',
@@ -1377,31 +1269,4 @@ export class CharacterService {
 
     return engravings;
   };
-}
-
-function groupAndCalculateAverage(data) {
-  const groupedData = {};
-
-  data.forEach((item) => {
-    const name = item.name;
-    const values = item.values;
-
-    if (!groupedData[name]) {
-      groupedData[name] = {
-        name: name,
-        values: [],
-      };
-    }
-
-    groupedData[name].values.push(...values);
-  });
-
-  for (const name in groupedData) {
-    const values = groupedData[name].values;
-    const sum = values.reduce((acc, curr) => acc + curr, 0);
-    const average = sum / values.length;
-    groupedData[name].values = [average];
-  }
-
-  return Object.values(groupedData);
 }

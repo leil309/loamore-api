@@ -20,6 +20,7 @@ export interface IGem {
   direction: string;
   skillIcon?: string | undefined | null;
 }
+
 export interface IGear {
   name: string;
   honing: number;
@@ -46,6 +47,7 @@ export interface IAccessory {
   braceletEffect: Array<string>;
   engraving: Array<any>;
 }
+
 export interface IEngraving {
   className?: string | null | undefined;
   name: string;
@@ -64,6 +66,7 @@ export enum CounterYn {
   Y = 'Y',
   N = 'N',
 }
+
 export enum SelectedYn {
   Y = 'Y',
   N = 'N',
@@ -138,4 +141,22 @@ export interface ICharacter {
   cardList: Array<any>;
   elixir: Array<any>;
   ownUserName: Array<any>;
+}
+
+export interface IStats {
+  attack_power: number;
+  max_health: number;
+  critical: number;
+  specialization: number;
+  domination: number;
+  swiftness: number;
+  endurance: number;
+  expertise: number;
+}
+
+export interface ITendencies {
+  wisdom: number;
+  courage: number;
+  charisma: number;
+  kindness: number;
 }
